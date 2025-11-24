@@ -259,7 +259,7 @@
                                     <input id="input-id" type="text" value="GUPP8P" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase" placeholder="e.g. GUPP8P">
                                     <div id="region-badge" class="absolute right-3 top-3 text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-cyan-400 font-bold hidden">DETECTING...</div>
                                 </div>
-                                <!-- NEW FETCH BUTTON -->
+                                <!-- FETCH BUTTON -->
                                 <button id="btn-fetch-meta" class="mt-2 w-full text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white py-1 rounded transition-colors uppercase tracking-wider flex items-center justify-center gap-1">
                                     <i data-lucide="refresh-cw" class="w-3 h-3"></i> Auto-Fetch Metadata
                                 </button>
@@ -276,7 +276,13 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Title Override</label>
-                                <input id="input-title" type="text" value="Super Paper Mario" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase">
+                                <div class="relative">
+                                    <input id="input-title" type="text" value="Super Paper Mario" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase pr-8">
+                                    <!-- MANUAL CLEAR/EDIT BUTTON -->
+                                    <button id="btn-clear-title" class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors" title="Clear / Edit Manually">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -288,7 +294,7 @@
                             <div id="preview-icon-container" class="relative z-10 flex flex-col items-center"></div>
                         </div>
                         <div class="bg-neutral-900 rounded-xl p-4 flex flex-col gap-3 border border-neutral-800">
-                            <!-- UPDATED URL OUTPUT -->
+                            <!-- URL OUTPUT -->
                             <div id="url-output" class="bg-black rounded p-3 font-mono text-xs text-neutral-500 break-all border border-neutral-800">https://medialaunchfx.vercel.app/...</div>
                             <div class="flex gap-2">
                                 <button id="btn-copy" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded font-bold flex items-center justify-center gap-2 transition-all text-xs uppercase tracking-wider">
@@ -372,7 +378,8 @@
                 copy: document.getElementById('btn-copy'), 
                 launch: document.getElementById('btn-launch'), 
                 reset: document.getElementById('btn-reset'),
-                fetch: document.getElementById('btn-fetch-meta')
+                fetch: document.getElementById('btn-fetch-meta'),
+                clearTitle: document.getElementById('btn-clear-title')
             },
             stage: { container: document.getElementById('animation-stage'), textInstruction: document.getElementById('text-instruction'), textTitle: document.getElementById('text-title') }
         };
@@ -403,6 +410,10 @@
                     if (id.startsWith('SLUS') || id.startsWith('SCUS')) { regionLabel = 'NTSC-U'; code = 'US'; }
                     else if (id.startsWith('SLES') || id.startsWith('SCES')) { regionLabel = 'PAL'; code = 'EN'; }
                     else if (id.startsWith('SLPM') || id.startsWith('SLPS')) { regionLabel = 'NTSC-J'; code = 'JA'; }
+                }
+                // Default switch behavior if ID doesn't match known patterns
+                if (consoleType === 'switch') {
+                    regionLabel = 'REGION FREE'; code = 'EN';
                 }
                 return { label: regionLabel, code: code };
             },
@@ -437,10 +448,9 @@
                 const gameTdbUrl = `https://www.gametdb.com/${platform}/${currentId}`;
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(gameTdbUrl)}&rand=${Date.now()}`;
                 
+                // Visual feedback
                 els.inputs.title.disabled = true;
-                if (els.inputs.title.value !== "RETRYING...") {
-                    els.inputs.title.value = "SEARCHING...";
-                }
+                els.inputs.title.value = "SEARCHING...";
                 
                 try {
                     const response = await fetch(proxyUrl);
@@ -503,15 +513,14 @@
                         throw new Error("No content");
                     }
                 } catch (e) {
-                    console.warn("Fetch failed, retrying...", e);
-                    els.inputs.title.value = "RETRYING...";
-                    setTimeout(() => {
-                        if (state.id.toUpperCase() === currentId) {
-                            MetadataService.fetchTitle(currentId, consoleType);
-                        } else {
-                            els.inputs.title.disabled = false;
-                        }
-                    }, 2000);
+                    console.warn("Fetch failed, fallback to manual.", e);
+                    els.inputs.title.disabled = false;
+                    els.inputs.title.value = "";
+                    els.inputs.title.placeholder = "Not Found - Enter Title Manually";
+                    els.inputs.title.focus();
+                } finally {
+                    els.inputs.title.disabled = false;
+                    updateGeneratorUI();
                 }
             },
 
@@ -519,18 +528,15 @@
                 const id = els.inputs.id.value.toUpperCase();
                 const consoleType = els.inputs.console.value;
                 
-                // Default detection (can be overridden by fetch)
-                const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
-                
-                // Only update region if we haven't fetched a specific one yet or if ID changed significantly
-                // Ideally we want fetch to take precedence, but for now we set default
-                if (els.inputs.title.value === "" || !els.inputs.title.disabled) {
-                     state.region = regionInfo.label;
-                     state.regionCode = regionInfo.code;
+                // Only update region if we haven't fetched a specific one
+                // or if user manually changed ID significantly
+                if (state.id !== id && id.length > 3) {
+                    const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
+                    state.region = regionInfo.label;
+                    state.regionCode = regionInfo.code;
+                    els.badges.region.textContent = state.region;
+                    els.badges.region.classList.remove('hidden');
                 }
-                
-                els.badges.region.textContent = state.region;
-                els.badges.region.classList.remove('hidden');
                 
                 state.id = id;
                 state.console = consoleType;
@@ -545,8 +551,8 @@
 
         function updateGeneratorUI() {
             const consoleData = getConsoleData(state.console);
-            // UPDATED: REMOVED "/play" so URL is just the root path with params
-            const encodedTitle = encodeURIComponent(state.title);
+            
+            const encodedTitle = encodeURIComponent(els.inputs.title.value || state.title);
             const code = state.regionCode || 'EN';
             const reg = state.region || 'REGION FREE';
             
@@ -576,7 +582,7 @@
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text)
                     .then(showCopySuccess)
-                    .catch(() => fallbackCopyText(text)); // If async fails (e.g. permission), use fallback
+                    .catch(() => fallbackCopyText(text)); 
             } else {
                 fallbackCopyText(text);
             }
@@ -586,12 +592,10 @@
             try {
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
-                
-                // Ensure it's not visible but part of DOM
                 textArea.style.position = "fixed";
                 textArea.style.left = "-9999px";
                 textArea.style.top = "0";
-                textArea.setAttribute('readonly', ''); // Prevent keyboard on mobile
+                textArea.setAttribute('readonly', ''); 
                 
                 document.body.appendChild(textArea);
                 textArea.focus();
@@ -609,15 +613,11 @@
 
         function showCopySuccess() {
             const btn = els.buttons.copy;
-            const originalHTML = btn.innerHTML;
-            
-            // Visual Feedback
             btn.classList.remove('bg-neutral-800', 'text-white', 'hover:bg-neutral-700');
             btn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
             btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> COPIED!`;
             lucide.createIcons();
 
-            // Reset
             setTimeout(() => {
                 btn.classList.remove('bg-green-600', 'hover:bg-green-700');
                 btn.classList.add('bg-neutral-800', 'hover:bg-neutral-700');
@@ -818,6 +818,14 @@
             els.buttons.launch.addEventListener('click', startLaunch);
             els.buttons.reset.addEventListener('click', resetApp);
             els.buttons.fetch.addEventListener('click', () => { MetadataService.fetchTitle(state.id, state.console); });
+            
+            // CLEAR TITLE BUTTON
+            els.buttons.clearTitle.addEventListener('click', () => {
+                els.inputs.title.value = '';
+                els.inputs.title.focus();
+                state.title = '';
+                updateGeneratorUI();
+            });
 
             // URL Param Parsing
             const params = new URLSearchParams(window.location.search);
