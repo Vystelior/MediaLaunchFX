@@ -381,6 +381,7 @@
             id: 'GUPP8P',
             title: 'Super Paper Mario',
             region: 'PAL',
+            regionCode: 'EN', // New property to store pure code
             textStyle: 'auto'
         };
 
@@ -402,30 +403,33 @@
                     else if (id.startsWith('SLES') || id.startsWith('SCES')) { regionLabel = 'PAL'; code = 'EN'; }
                     else if (id.startsWith('SLPM') || id.startsWith('SLPS')) { regionLabel = 'NTSC-J'; code = 'JA'; }
                 }
+                // Default switch behavior if ID doesn't match known patterns
+                if (consoleType === 'switch') {
+                    // Switch codes are often like LA-H-AAAAA-USA or just AAAAA
+                    // Defaulting to Region Free / EN usually works for art
+                    regionLabel = 'REGION FREE'; code = 'EN';
+                }
                 return { label: regionLabel, code: code };
             },
             
             getArtUrl: (id, consoleType, regionCode) => {
                 id = id.toUpperCase();
+                // Normalize code for art fetching
+                let artRegion = regionCode;
+                if (state.region === "REGION FREE" || state.region === "MULTI") artRegion = 'EN';
+                if (!artRegion) artRegion = 'EN';
+
                 if (consoleType === 'switch') {
-                    // Ensure we use a valid code for GameTDB structure even if displayed as "REGION FREE"
-                    let artRegion = regionCode;
-                    if (state.region === "REGION FREE" || state.region === "MULTI") artRegion = 'EN'; 
                     return `https://art.gametdb.com/switch/cart/${artRegion}/${id}.png`;
                 }
                 let platform = consoleType === 'gc' ? 'wii' : consoleType;
                 const type = ['nes', 'snes', 'n64'].includes(consoleType) ? 'cover' : 'disc';
-                
-                // Handle region free art fallback to EN or US
-                let artRegion = regionCode;
-                if (state.region === "REGION FREE" || state.region === "MULTI") artRegion = 'EN';
-
                 return `https://art.gametdb.com/${platform}/${type}/${artRegion}/${id}.png`; 
             },
 
             // --- FETCH TITLE FROM GAMETDB VIA PROXY ---
             fetchTitle: async (id, consoleType) => {
-                id = id.toUpperCase();
+                const currentId = id.toUpperCase();
                 let platform = consoleType === 'gc' ? 'Wii' : consoleType.charAt(0).toUpperCase() + consoleType.slice(1);
                 if(consoleType === 'wiiu') platform = 'WiiU';
                 if(consoleType === 'ps1') platform = 'PS1';
@@ -435,20 +439,17 @@
                 if(consoleType === 'snes') platform = 'SNES';
                 if(consoleType === 'n64') platform = 'N64';
                 
-                const gameTdbUrl = `https://www.gametdb.com/${platform}/${id}`;
-                // Use AllOrigins which returns JSON
+                const gameTdbUrl = `https://www.gametdb.com/${platform}/${currentId}`;
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(gameTdbUrl)}&rand=${Date.now()}`;
                 
-                try {
+                els.inputs.title.disabled = true;
+                if (els.inputs.title.value !== "RETRYING...") {
                     els.inputs.title.value = "SEARCHING...";
-                    els.inputs.title.disabled = true;
-                    
+                }
+                
+                try {
                     const response = await fetch(proxyUrl);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Proxy Error: ${response.status}`);
-                    }
-                    
+                    if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
                     const data = await response.json();
                     
                     if (data.contents) {
@@ -456,24 +457,24 @@
                         const matches = htmlText.match(/<title>(.*?)<\/title>/);
                         
                         if (matches && matches[1]) {
-                            // Full Title: "Game Name [ID] (Region) - GameTDB"
                             let rawTitle = matches[1];
+                            
+                            // Check for Generic/Error pages
+                            if (rawTitle.includes("Video Game Database") && !rawTitle.includes("[")) {
+                                throw new Error("Generic Page Returned (Possible 404)");
+                            }
                             
                             // 1. Extract Region from Parentheses
                             const regionMatch = rawTitle.match(/\((.*?)\)/);
                             if (regionMatch && regionMatch[1]) {
                                 const regionStr = regionMatch[1];
-                                // Check for multiple regions (commas)
                                 if (regionStr.includes(',')) {
                                     state.region = "REGION FREE";
-                                    // We keep code as 'EN' or 'US' for art fetching purposes usually
                                     state.regionCode = 'EN'; 
                                 } else {
                                     state.region = regionStr;
-                                    state.regionCode = regionStr; // Simple mapping
+                                    state.regionCode = regionStr; 
                                 }
-                                
-                                // Update UI Badge immediately
                                 els.badges.region.textContent = state.region;
                                 els.badges.region.classList.remove('hidden');
                             }
@@ -482,15 +483,13 @@
                             rawTitle = rawTitle.replace(/ - GameTDB/i, '');
                             rawTitle = rawTitle.replace(/ – GameTDB/i, ''); 
                             
-                            const idPrefixPattern = new RegExp(`^${id}\\s*-\\s*`, 'i');
+                            const idPrefixPattern = new RegExp(`^${currentId}\\s*-\\s*`, 'i');
                             rawTitle = rawTitle.replace(idPrefixPattern, '');
 
-                            const idBracketPattern = new RegExp(`\\[${id}\\]`, 'i');
+                            const idBracketPattern = new RegExp(`\\[${currentId}\\]`, 'i');
                             rawTitle = rawTitle.replace(idBracketPattern, '');
                             
-                            // Remove region text from title string
                             rawTitle = rawTitle.replace(/\(.*?\)/g, '');
-
                             rawTitle = rawTitle.trim();
                             
                             const txt = document.createElement("textarea");
@@ -499,18 +498,25 @@
 
                             state.title = rawTitle;
                             els.inputs.title.value = rawTitle;
+                            els.inputs.title.disabled = false; 
+                            updateGeneratorUI();
+                            return; 
                         } else {
-                            throw new Error("Title tag not found in page content");
+                            throw new Error("Title tag not found");
                         }
                     } else {
-                        throw new Error("No content returned from proxy");
+                        throw new Error("No content");
                     }
                 } catch (e) {
-                    console.warn("Fetch failed:", e);
-                    els.inputs.title.value = "Not Found (Enter Manual)";
-                } finally {
-                    els.inputs.title.disabled = false;
-                    updateGeneratorUI();
+                    console.warn("Fetch failed, retrying...", e);
+                    els.inputs.title.value = "RETRYING...";
+                    setTimeout(() => {
+                        if (state.id.toUpperCase() === currentId) {
+                            MetadataService.fetchTitle(currentId, consoleType);
+                        } else {
+                            els.inputs.title.disabled = false;
+                        }
+                    }, 2000);
                 }
             },
 
@@ -518,12 +524,17 @@
                 const id = els.inputs.id.value.toUpperCase();
                 const consoleType = els.inputs.console.value;
                 
-                // Default detection (overridden if fetch is used)
+                // Default detection (can be overridden by fetch)
                 const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
-                state.region = regionInfo.label;
-                state.regionCode = regionInfo.code;
                 
-                els.badges.region.textContent = regionInfo.label;
+                // Only update region if we haven't fetched a specific one yet or if ID changed significantly
+                // Ideally we want fetch to take precedence, but for now we set default
+                if (els.inputs.title.value === "" || !els.inputs.title.disabled) {
+                     state.region = regionInfo.label;
+                     state.regionCode = regionInfo.code;
+                }
+                
+                els.badges.region.textContent = state.region;
                 els.badges.region.classList.remove('hidden');
                 
                 state.id = id;
@@ -539,7 +550,13 @@
 
         function updateGeneratorUI() {
             const consoleData = getConsoleData(state.console);
-            els.output.textContent = `https://medialaunchfx.vercel.app/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}`;
+            // Include Region (&r) and RegionCode (&rc) in the URL so it persists when shared
+            const encodedTitle = encodeURIComponent(state.title);
+            // We use 'EN' as fallback for code if undefined to ensure art works
+            const code = state.regionCode || 'EN';
+            const reg = state.region || 'REGION FREE';
+            
+            els.output.textContent = `https://medialaunchfx.vercel.app/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}&title=${encodedTitle}&r=${encodeURIComponent(reg)}&rc=${code}`;
             
             let icon = 'disc';
             if (consoleData.type === 'cartridge') icon = 'save';
@@ -557,29 +574,42 @@
             lucide.createIcons();
         }
 
-        // --- UPDATED COPY FUNCTIONALITY ---
+        // --- ROBUST COPY FUNCTIONALITY ---
         function handleCopyURL() {
             const text = els.output.textContent;
             
-            // Robust Copy Logic (Fallback for iframes)
+            // Try Async API first
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(showCopySuccess);
+                navigator.clipboard.writeText(text)
+                    .then(showCopySuccess)
+                    .catch(() => fallbackCopyText(text)); // If async fails (e.g. permission), use fallback
             } else {
-                // Textarea fallback
-                let textArea = document.createElement("textarea");
+                fallbackCopyText(text);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            try {
+                const textArea = document.createElement("textarea");
                 textArea.value = text;
+                
+                // Ensure it's not visible but part of DOM
                 textArea.style.position = "fixed";
                 textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                textArea.setAttribute('readonly', ''); // Prevent keyboard on mobile
+                
                 document.body.appendChild(textArea);
                 textArea.focus();
                 textArea.select();
-                try {
-                    document.execCommand('copy');
-                    showCopySuccess();
-                } catch (err) {
-                    console.error('Fallback copy failed', err);
-                }
+                
+                const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);
+                
+                if (successful) showCopySuccess();
+                else console.error('Fallback copy failed.');
+            } catch (err) {
+                console.error('Unable to copy', err);
             }
         }
 
@@ -587,16 +617,16 @@
             const btn = els.buttons.copy;
             const originalHTML = btn.innerHTML;
             
-            // Change to Success State
-            btn.classList.remove('bg-neutral-800', 'text-white');
-            btn.classList.add('bg-green-600', 'text-white');
+            // Visual Feedback
+            btn.classList.remove('bg-neutral-800', 'text-white', 'hover:bg-neutral-700');
+            btn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
             btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> COPIED!`;
             lucide.createIcons();
 
-            // Revert after 2s
+            // Reset
             setTimeout(() => {
-                btn.classList.remove('bg-green-600');
-                btn.classList.add('bg-neutral-800');
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-neutral-800', 'hover:bg-neutral-700');
                 btn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i> Copy`;
                 lucide.createIcons();
             }, 2000);
@@ -609,28 +639,19 @@
             if (type === 'cartridge') {
                 return `
                     <div class="relative w-80 h-80 flex flex-col items-center justify-end perspective-1000">
-                        
-                        <!-- NEW CONSOLE TOP DECK -->
                         <div class="absolute bottom-0 w-[120%] h-32 bg-[#1a1a1a] rounded-t-xl border-t border-neutral-700 shadow-2xl flex items-start justify-center z-30 overflow-hidden">
-                             <!-- The Recessed Bay -->
                              <div class="w-[80%] h-full bg-[#050505] shadow-[inset_0_10px_30px_rgba(0,0,0,1)] border-x border-neutral-800 relative mt-4">
                                 <div class="absolute top-0 w-full h-2 bg-gradient-to-b from-black to-transparent opacity-80"></div>
                              </div>
-                             <!-- Deck Details -->
                              <div class="absolute top-2 w-[85%] h-0.5 bg-neutral-600 opacity-20"></div>
                         </div>
-
-                        <!-- CARTRIDGE -->
                         <div class="cart-container relative z-10 w-64 h-64 bg-neutral-800 rounded-t-md border-x-4 border-t-4 border-neutral-700 flex flex-col items-center shadow-xl">
-                            <!-- Grip -->
                             <div class="w-full h-8 flex flex-col justify-center gap-1 mt-4 opacity-50 border-b border-neutral-700 pb-2">
                                 <div class="w-full h-0.5 bg-black"></div><div class="w-full h-0.5 bg-black"></div>
                             </div>
-                            <!-- Label Area -->
                             <div class="mt-2 w-[88%] h-[65%] bg-[#0a0a0a] rounded-sm overflow-hidden relative border border-neutral-600 shadow-inner">
                                 ${artBlock}
                             </div>
-                            <!-- Chip Edge Visual -->
                             <div class="absolute -bottom-2 w-[90%] h-4 bg-green-900/50 rounded-b"></div>
                         </div>
                     </div>`;
@@ -638,28 +659,19 @@
             else if (type === 'slot') {
                 return `
                     <div class="relative w-96 h-96 flex items-center justify-center perspective-1000">
-                        
-                        <!-- BOTTOM JAW (Console Body) -->
                         <div class="absolute z-20 w-[120%] h-32 top-[50%] bg-[#1a1a1a] border-t border-neutral-800 shadow-2xl">
-                             <!-- Lip Detail -->
                              <div class="w-full h-1 bg-neutral-700 opacity-50"></div>
                         </div>
-
-                        <!-- DISC LAYER (Sandwiched) -->
                         <div class="slot-disc-wrapper relative w-72 h-72 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                             <div class="absolute inset-0 rounded-full overflow-hidden bg-neutral-800 border-[6px] border-neutral-800 animate-spin-slow">
                                 ${artBlock}
                             </div>
                             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-[#050505] rounded-full border border-neutral-700"></div>
                         </div>
-
-                        <!-- TOP JAW (Faceplate) -->
                         <div class="absolute z-30 w-[120%] h-32 bottom-[50%] bg-[#1a1a1a] border-b border-black shadow-lg flex flex-col justify-end items-center">
-                            <!-- Slot Mouth Shadow -->
                             <div class="w-[85%] h-2 bg-black rounded-full blur-[2px] opacity-80 mb-[-1px]"></div>
                              <div class="absolute bottom-4 right-10 slot-led w-1.5 h-1.5 rounded-full bg-neutral-700"></div>
                         </div>
-
                     </div>`;
             }
             else if (type === 'tray') {
@@ -671,13 +683,9 @@
                              </div>
                         </div>
                         <div class="relative w-72 h-72 z-10 mt-20">
-                            <!-- Redesigned Receiver: PC/Console Tray -->
                             <div class="tray-mech w-full h-full bg-[#151515] rounded-b-lg border-x border-b border-neutral-800 flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,1)]">
-                                <!-- The Circular Depression -->
                                 <div class="w-[92%] h-[92%] rounded-full bg-[#0f0f0f] shadow-[inset_0_5px_15px_black] flex items-center justify-center border border-white/5 relative">
-                                    <!-- Spindle Bump -->
                                     <div class="absolute w-12 h-12 rounded-full bg-[#111] border border-neutral-800 shadow-lg z-0"></div>
-                                    
                                     <div class="tray-disc w-[95%] h-[95%] rounded-full relative z-10">
                                         <div class="absolute inset-0 rounded-full overflow-hidden border border-neutral-800 animate-spin-slow">
                                             ${artBlock}
@@ -692,17 +700,13 @@
             else if (type === 'card') {
                 return `
                     <div class="relative w-48 h-72 flex items-center justify-center perspective-1000">
-                        <!-- Redesigned Receiver: Switch Dust Cover Flap -->
                         <div class="absolute top-[-10px] w-64 h-24 bg-[#1a1a1a] border-b border-neutral-800 z-20 flex flex-col items-center justify-end pb-4 shadow-xl">
-                            <!-- The Slot Hole -->
                             <div class="w-36 h-4 bg-black rounded-sm relative perspective-800">
-                                <!-- The Flap (Animated) -->
                                 <div class="switch-flap absolute top-0 left-0 w-full h-full bg-neutral-700 origin-top border-b border-neutral-600">
                                     <div class="absolute bottom-1 right-2 text-[6px] text-neutral-400 font-bold">GAME CARD</div>
                                 </div>
                             </div>
                         </div>
-
                         <div class="card-body w-32 h-44 bg-[#1a1a1a] rounded-lg border border-neutral-700 overflow-hidden shadow-2xl z-10">
                             <div class="h-[75%] w-full relative overflow-hidden bg-neutral-800">
                                 ${artBlock}
@@ -830,9 +834,10 @@
                 if (params.has('title')) {
                      state.title = decodeURIComponent(params.get('title'));
                      els.inputs.title.value = state.title;
-                } else {
-                     MetadataService.update(); 
                 }
+                // Retrieve persistent region data
+                if (params.has('r')) state.region = decodeURIComponent(params.get('r'));
+                if (params.has('rc')) state.regionCode = params.get('rc');
                 
                 // Sync Inputs
                 els.inputs.id.value = state.id;
