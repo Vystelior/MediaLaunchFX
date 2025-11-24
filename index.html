@@ -288,6 +288,7 @@
                             <div id="preview-icon-container" class="relative z-10 flex flex-col items-center"></div>
                         </div>
                         <div class="bg-neutral-900 rounded-xl p-4 flex flex-col gap-3 border border-neutral-800">
+                            <!-- UPDATED URL OUTPUT -->
                             <div id="url-output" class="bg-black rounded p-3 font-mono text-xs text-neutral-500 break-all border border-neutral-800">https://medialaunchfx.vercel.app/...</div>
                             <div class="flex gap-2">
                                 <button id="btn-copy" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded font-bold flex items-center justify-center gap-2 transition-all text-xs uppercase tracking-wider">
@@ -402,12 +403,6 @@
                     if (id.startsWith('SLUS') || id.startsWith('SCUS')) { regionLabel = 'NTSC-U'; code = 'US'; }
                     else if (id.startsWith('SLES') || id.startsWith('SCES')) { regionLabel = 'PAL'; code = 'EN'; }
                     else if (id.startsWith('SLPM') || id.startsWith('SLPS')) { regionLabel = 'NTSC-J'; code = 'JA'; }
-                }
-                // Default switch behavior if ID doesn't match known patterns
-                if (consoleType === 'switch') {
-                    // Switch codes are often like LA-H-AAAAA-USA or just AAAAA
-                    // Defaulting to Region Free / EN usually works for art
-                    regionLabel = 'REGION FREE'; code = 'EN';
                 }
                 return { label: regionLabel, code: code };
             },
@@ -550,13 +545,12 @@
 
         function updateGeneratorUI() {
             const consoleData = getConsoleData(state.console);
-            // Include Region (&r) and RegionCode (&rc) in the URL so it persists when shared
+            // UPDATED: REMOVED "/play" so URL is just the root path with params
             const encodedTitle = encodeURIComponent(state.title);
-            // We use 'EN' as fallback for code if undefined to ensure art works
             const code = state.regionCode || 'EN';
             const reg = state.region || 'REGION FREE';
             
-            els.output.textContent = `https://medialaunchfx.vercel.app/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}&title=${encodedTitle}&r=${encodeURIComponent(reg)}&rc=${code}`;
+            els.output.textContent = `https://medialaunchfx.vercel.app/?id=${state.id}&c=${state.console}&txt=${state.textStyle}&title=${encodedTitle}&r=${encodeURIComponent(reg)}&rc=${code}`;
             
             let icon = 'disc';
             if (consoleData.type === 'cartridge') icon = 'save';
