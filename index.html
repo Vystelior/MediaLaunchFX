@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaLaunchFX</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* --- GLOBAL CINEMATICS --- */
+        body {
+            background-color: #050505;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Ambient "God Ray" Spotlight */
+        #spotlight {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 3D Utilities */
+        .perspective-1000 { perspective: 1000px; }
+        .perspective-800 { perspective: 800px; }
+        .preserve-3d { transform-style: preserve-3d; }
+
+        /* Screen Shake Impact */
+        @keyframes shake-impact {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5px, -5px); }
+            30% { transform: translate(5px, 5px); }
+            50% { transform: translate(-3px, 3px); }
+            70% { transform: translate(3px, -3px); }
+            90% { transform: translate(-1px, 1px); }
+        }
+        .impact-shake {
+            animation: shake-impact 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Slow Spin for Discs */
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+
+        /* --- VISIBLE ART WITH GLOW REVEAL --- */
+        .media-art {
+            filter: brightness(0.9) contrast(1.05);
+            transition: filter 0.2s ease-out; 
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+        }
+        .stage-reveal .media-art {
+            filter: brightness(1.2) contrast(1.2) drop-shadow(0 0 10px rgba(255,255,255,0.3));
+            transition: filter 0.1s ease-out; 
+        }
+        
+        /* The "Flash" Overlay */
+        #flash-overlay {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 60;
+            mix-blend-mode: overlay;
+        }
+        .stage-reveal #flash-overlay {
+            animation: flash-burst 2.5s cubic-bezier(0,1,0,1) forwards;
+        }
+        @keyframes flash-burst {
+            0% { opacity: 0; }
+            5% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* --- PHYSICS ENGINE (Specific Animations) --- */
+
+        /* 1. CARTRIDGE (Top Loader - NES/SNES/N64) */
+        .cart-container {
+            transform: translateY(-400px) rotateX(10deg);
+            transition: transform 0.6s cubic-bezier(0.5, 0, 0.75, 0);
+        }
+        .stage-insert .cart-container {
+            transform: translateY(-80px) rotateX(0deg); /* Hover above slot */
+            transition: transform 0.8s ease-out;
+        }
+        .stage-lock .cart-container, .stage-reveal .cart-container {
+            transform: translateY(40px); /* Deep into console */
+            transition: transform 0.15s cubic-bezier(0.8, 0, 1, 0); /* Heavy Slam */
+        }
+
+        /* 2. SLOT LOADER (Sandwich Layering) */
+        .slot-disc-wrapper {
+            /* Starts lower with a steep 'aiming' tilt towards the slot */
+            transform: translateY(350px) scale(0.9) rotateX(50deg);
+            transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            opacity: 0;
+            z-index: 25; /* Between Back (20) and Front (30) */
+        }
+        .stage-insert .slot-disc-wrapper {
+            /* Align perfectly flush with the slot mouth (Leveling out) */
+            transform: translateY(0px) scale(0.95) rotateX(0deg); 
+            opacity: 1;
+        }
+        .stage-lock .slot-disc-wrapper, .stage-reveal .slot-disc-wrapper {
+            /* Slide INTO the machine */
+            transform: translateY(-150px) scale(0.95); 
+            transition: all 0.4s cubic-bezier(0.6, 0.04, 0.98, 0.335); /* Mechanical intake */
+        }
+        
+        /* 3. SWITCH CARD */
+        .card-body {
+            transform: translateY(-300px) rotateX(20deg);
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .stage-insert .card-body {
+            transform: translateY(-50px) rotateX(0deg); 
+        }
+        .stage-push .card-body {
+            transform: translateY(30px); 
+            transition: transform 0.2s ease-out;
+        }
+        .stage-lock .card-body, .stage-reveal .card-body {
+            transform: translateY(10px); 
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .switch-flap {
+            transform-origin: top center;
+            transition: transform 0.3s;
+        }
+        .stage-insert .switch-flap { transform: rotateX(-45deg); } 
+        .stage-push .switch-flap { transform: rotateX(-80deg); }
+        .stage-lock .switch-flap { transform: rotateX(-85deg); } 
+
+
+        /* 4. TRAY LOADER */
+        .tray-mech {
+            transform: translateY(-100%);
+            transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stage-insert .tray-mech { transform: translateY(15%); }
+        .stage-lock .tray-mech, .stage-reveal .tray-mech {
+            transform: translateY(-100%);
+            transition: transform 1.2s ease-in; 
+        }
+        .tray-disc {
+            transform: translateY(-500px);
+            opacity: 0;
+            transition: transform 0.8s ease-in, opacity 0.5s;
+        }
+        .stage-insert .tray-disc {
+            transform: translateY(0); opacity: 1; transition-delay: 1.0s; 
+        }
+
+        /* 5. SPINDLE (GameCube) */
+        .spindle-disc {
+            transform: scale(2) translateZ(200px) rotateZ(45deg);
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .stage-insert .spindle-disc, .stage-lock .spindle-disc, .stage-reveal .spindle-disc {
+            transform: scale(1) translateZ(0) rotateZ(0deg);
+            opacity: 1;
+        }
+        .spindle-hub { transition: transform 0.1s; }
+        .stage-lock .spindle-hub { transform: scale(0.95); }
+
+        /* --- BACKGROUND & TEXT --- */
+        #launch-view { transition: background-color 3s; background-color: #050505; }
+        .stage-reveal #launch-view { background-color: #0f172a; } 
+
+        #launch-text { transition: all 0.5s; opacity: 0; transform: translateY(20px); }
+        .stage-lock #launch-text { opacity: 1; transform: translateY(0); }
+        .stage-reveal #launch-text { opacity: 0; transform: scale(1.1); filter: blur(4px); }
+
+        .bg-grid {
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        
+        .slot-led { transition: 0.3s; background: #333; box-shadow: none; }
+        .stage-insert .slot-led { background: #f97316; box-shadow: 0 0 10px #f97316; }
+        .stage-lock .slot-led, .stage-reveal .slot-led { background: #3b82f6; box-shadow: 0 0 30px #3b82f6; }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="w-full h-screen relative">
+
+        <!-- GENERATOR UI -->
+        <div id="generator-view" class="w-full h-full bg-neutral-950 flex flex-col items-center overflow-y-auto custom-scrollbar relative z-50">
+            <div class="max-w-4xl w-full px-6 py-12 flex flex-col items-center">
+                <div class="text-center mb-12">
+                    <h1 class="text-6xl font-black tracking-tighter mb-4 text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                        MediaLaunch<span class="text-cyan-400">FX</span>
+                    </h1>
+                    <p class="text-neutral-500 text-lg uppercase tracking-widest">Cinematic Boot Sequence Generator</p>
+                </div>
+
+                <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Config -->
+                    <div class="bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-xl p-8 shadow-2xl">
+                        <h2 class="text-xl font-bold mb-6 flex items-center gap-2 text-white">
+                            <i data-lucide="settings" class="text-cyan-400"></i> Sequence Config
+                        </h2>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Platform</label>
+                                <select id="input-console" class="w-full bg-black text-white border border-neutral-800 rounded p-3 focus:border-cyan-500 outline-none uppercase font-mono text-sm">
+                                    <optgroup label="Nintendo">
+                                        <option value="nes">NES (Cartridge)</option>
+                                        <option value="snes">SNES (Cartridge)</option>
+                                        <option value="n64">N64 (Cartridge)</option>
+                                        <option value="gc">GameCube (Spindle)</option>
+                                        <option value="wii">Wii (Slot Load)</option>
+                                        <option value="wiiu">Wii U (Slot Load)</option>
+                                        <option value="switch">Switch (Game Card)</option>
+                                    </optgroup>
+                                    <optgroup label="PlayStation">
+                                        <option value="ps1">PlayStation 1 (Spindle)</option>
+                                        <option value="ps2" selected>PlayStation 2 (Motor Tray)</option>
+                                        <option value="ps5">PlayStation 5 (Slot Load)</option>
+                                    </optgroup>
+                                    <optgroup label="Xbox">
+                                        <option value="xbox360">Xbox 360 (Motor Tray)</option>
+                                        <option value="xboxone">Xbox One (Slot Load)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Game ID</label>
+                                <div class="relative">
+                                    <input id="input-id" type="text" value="GUPP8P" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase" placeholder="e.g. GUPP8P">
+                                    <div id="region-badge" class="absolute right-3 top-3 text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-cyan-400 font-bold hidden">DETECTING...</div>
+                                </div>
+                                <!-- NEW FETCH BUTTON -->
+                                <button id="btn-fetch-meta" class="mt-2 w-full text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white py-1 rounded transition-colors uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Auto-Fetch Metadata
+                                </button>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Boot Text</label>
+                                <select id="input-text-style" class="w-full bg-black text-white border border-neutral-800 rounded p-3 focus:border-cyan-500 outline-none font-mono text-sm uppercase">
+                                    <option value="auto">Auto (Insert Disc/Cart)</option>
+                                    <option value="insert_disc">"Please Insert Disc"</option>
+                                    <option value="insert_card">"Insert Game Card"</option>
+                                    <option value="digital_soft">"Launch Digital Software"</option>
+                                    <option value="system_init">"System Initializing..."</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Title Override</label>
+                                <input id="input-title" type="text" value="Super Paper Mario" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview -->
+                    <div class="flex flex-col gap-6">
+                        <div class="bg-neutral-900 border border-neutral-800 rounded-xl h-64 flex items-center justify-center relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1),transparent_70%)]"></div>
+                            <div id="preview-icon-container" class="relative z-10 flex flex-col items-center"></div>
+                        </div>
+                        <div class="bg-neutral-900 rounded-xl p-4 flex flex-col gap-3 border border-neutral-800">
+                            <div id="url-output" class="bg-black rounded p-3 font-mono text-xs text-neutral-500 break-all border border-neutral-800">https://medialaunchfx.com...</div>
+                            <div class="flex gap-2">
+                                <button id="btn-copy" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded font-bold flex items-center justify-center gap-2 transition-all text-xs uppercase tracking-wider">
+                                    <i data-lucide="copy" class="w-4 h-4"></i> <span id="copy-text">Copy</span>
+                                </button>
+                                <button id="btn-launch" class="flex-[2] bg-cyan-600 hover:bg-cyan-500 text-black p-3 rounded font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(8,145,178,0.4)] transition-all hover:scale-[1.02] text-xs uppercase tracking-wider">
+                                    <i data-lucide="play" class="w-4 h-4 fill-current"></i> Initialize
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 
+             VIEW 2: CINEMATIC STAGE 
+             ==================== -->
+        <div id="launch-view" class="w-full h-full absolute inset-0 hidden flex flex-col items-center justify-center overflow-hidden perspective-1000">
+            
+            <!-- Atmosphere -->
+            <div id="stage-bg-grid" class="absolute inset-0 bg-grid opacity-20"></div>
+            <div id="spotlight"></div>
+            <div id="flash-overlay"></div>
+
+            <!-- UI Overlay (Exit) -->
+            <button id="btn-reset" class="absolute top-8 right-8 z-[70] text-[10px] tracking-widest bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white px-4 py-2 rounded backdrop-blur border border-white/5 transition-colors uppercase">
+                Abort Sequence
+            </button>
+
+            <!-- 3D Animation Stage -->
+            <div id="animation-stage" class="relative z-20 w-full h-full flex items-center justify-center preserve-3d">
+                <!-- Injected Content -->
+            </div>
+
+            <!-- Status Text -->
+            <div id="launch-text" class="absolute bottom-32 z-30 text-center pointer-events-none">
+                <h2 id="text-instruction" class="text-cyan-500 text-xs font-bold tracking-[0.5em] uppercase mb-4 animate-pulse">System Ready</h2>
+                <h1 id="text-title" class="text-4xl font-black text-white tracking-tight uppercase drop-shadow-2xl">Game Title</h1>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // --- LOGIC ---
+        const CONSOLE_DB = {
+            nintendo: {
+                nes: { label: 'NES', type: 'cartridge' },
+                snes: { label: 'SNES', type: 'cartridge' },
+                n64: { label: 'N64', type: 'cartridge' },
+                gc: { label: 'GameCube', type: 'spindle' }, 
+                switch: { label: 'Switch', type: 'card' },
+                wii: { label: 'Wii', type: 'slot' }, 
+                wiiu: { label: 'Wii U', type: 'slot' }, 
+            },
+            sony: {
+                ps1: { label: 'PlayStation 1', type: 'spindle' }, 
+                ps2: { label: 'PlayStation 2', type: 'tray' }, 
+                ps5: { label: 'PlayStation 5', type: 'slot' },
+            },
+            xbox: {
+                xbox360: { label: 'Xbox 360', type: 'tray' }, 
+                xboxone: { label: 'Xbox One', type: 'slot' },
+            }
+        };
+
+        const els = {
+            views: { generator: document.getElementById('generator-view'), launch: document.getElementById('launch-view') },
+            inputs: { 
+                console: document.getElementById('input-console'), 
+                id: document.getElementById('input-id'), 
+                title: document.getElementById('input-title'),
+                textStyle: document.getElementById('input-text-style')
+            },
+            badges: { region: document.getElementById('region-badge') },
+            preview: { container: document.getElementById('preview-icon-container') },
+            output: { url: document.getElementById('url-output') },
+            buttons: { 
+                copy: document.getElementById('btn-copy'), 
+                launch: document.getElementById('btn-launch'), 
+                reset: document.getElementById('btn-reset'),
+                fetch: document.getElementById('btn-fetch-meta')
+            },
+            stage: { container: document.getElementById('animation-stage'), textInstruction: document.getElementById('text-instruction'), textTitle: document.getElementById('text-title') }
+        };
+
+        let state = {
+            console: 'gc',
+            id: 'GUPP8P',
+            title: 'Super Paper Mario',
+            region: 'PAL',
+            textStyle: 'auto'
+        };
+
+        // --- CORE FUNCTIONS ---
+        const MetadataService = {
+            detectRegionInfo: (id, consoleType) => {
+                id = id.toUpperCase();
+                let regionLabel = 'NTSC-U'; let code = 'US';
+                // Nintendo Pattern (4th char)
+                if (['gc', 'wii', 'wiiu', 'nes', 'snes', 'n64'].includes(consoleType) && id.length >= 4) {
+                    const char = id[3];
+                    if (char === 'E') { regionLabel = 'NTSC-U'; code = 'US'; }
+                    else if (char === 'P') { regionLabel = 'PAL'; code = 'EN'; } 
+                    else if (char === 'J') { regionLabel = 'NTSC-J'; code = 'JA'; }
+                }
+                // Sony Pattern
+                if (['ps1', 'ps2'].includes(consoleType)) {
+                    if (id.startsWith('SLUS') || id.startsWith('SCUS')) { regionLabel = 'NTSC-U'; code = 'US'; }
+                    else if (id.startsWith('SLES') || id.startsWith('SCES')) { regionLabel = 'PAL'; code = 'EN'; }
+                    else if (id.startsWith('SLPM') || id.startsWith('SLPS')) { regionLabel = 'NTSC-J'; code = 'JA'; }
+                }
+                return { label: regionLabel, code: code };
+            },
+            
+            getArtUrl: (id, consoleType, regionCode) => {
+                id = id.toUpperCase();
+                if (consoleType === 'switch') {
+                    return `https://art.gametdb.com/switch/cart/${regionCode}/${id}.png`;
+                }
+                let platform = consoleType === 'gc' ? 'wii' : consoleType;
+                const type = ['nes', 'snes', 'n64'].includes(consoleType) ? 'cover' : 'disc';
+                return `https://art.gametdb.com/${platform}/${type}/${regionCode}/${id}.png`; 
+            },
+
+            // --- NEW: FETCH TITLE FROM GAMETDB VIA PROXY ---
+            fetchTitle: async (id, consoleType) => {
+                id = id.toUpperCase();
+                let platform = consoleType === 'gc' ? 'Wii' : consoleType.charAt(0).toUpperCase() + consoleType.slice(1);
+                if(consoleType === 'wiiu') platform = 'WiiU';
+                if(consoleType === 'ps1') platform = 'PS1';
+                if(consoleType === 'ps2') platform = 'PS2';
+                if(consoleType === 'switch') platform = 'Switch';
+                if(consoleType === 'nes') platform = 'NES';
+                if(consoleType === 'snes') platform = 'SNES';
+                if(consoleType === 'n64') platform = 'N64';
+                
+                // Use corsproxy.io as a more stable alternative to allorigins.win
+                const gameTdbUrl = `https://www.gametdb.com/${platform}/${id}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(gameTdbUrl)}`;
+                
+                try {
+                    els.inputs.title.value = "SEARCHING...";
+                    els.inputs.title.disabled = true;
+                    
+                    const response = await fetch(proxyUrl);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok: ${response.status}`);
+                    }
+                    
+                    const htmlText = await response.text();
+                    
+                    // Simple Regex to extract title tag
+                    const matches = htmlText.match(/<title>(.*?)<\/title>/);
+                    
+                    if (matches && matches[1]) {
+                        // Format is usually "Game Name [ID] - GameTDB"
+                        let rawTitle = matches[1];
+                        rawTitle = rawTitle.split('[')[0].trim();
+                        rawTitle = rawTitle.replace(' - GameTDB', '').trim();
+                        
+                        // Decode HTML entities if needed
+                        const txt = document.createElement("textarea");
+                        txt.innerHTML = rawTitle;
+                        rawTitle = txt.value;
+
+                        state.title = rawTitle;
+                        els.inputs.title.value = rawTitle;
+                    } else {
+                        // If standard parse fails, maybe try to read error or fallback
+                        throw new Error("Title tag not found in response");
+                    }
+                } catch (e) {
+                    console.warn("Auto-fetch failed, falling back to manual entry.", e);
+                    els.inputs.title.value = "Unknown Title (Enter Manual)";
+                } finally {
+                    els.inputs.title.disabled = false;
+                    updateGeneratorUI();
+                }
+            },
+
+            update: () => {
+                const id = els.inputs.id.value.toUpperCase();
+                const consoleType = els.inputs.console.value;
+                const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
+                state.region = regionInfo.label;
+                state.regionCode = regionInfo.code;
+                
+                els.badges.region.textContent = regionInfo.label;
+                els.badges.region.classList.remove('hidden');
+                
+                state.id = id;
+                state.console = consoleType;
+                state.textStyle = els.inputs.textStyle.value;
+            }
+        };
+
+        function getConsoleData(key) {
+            for (const group in CONSOLE_DB) if (CONSOLE_DB[group][key]) return CONSOLE_DB[group][key];
+            return CONSOLE_DB.sony.ps2; 
+        }
+
+        function updateGeneratorUI() {
+            const consoleData = getConsoleData(state.console);
+            els.output.textContent = `https://medialaunchfx.com/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}`;
+            
+            let icon = 'disc';
+            if (consoleData.type === 'cartridge') icon = 'save';
+            if (consoleData.type === 'card') icon = 'monitor';
+            
+            els.preview.container.innerHTML = `
+                <i data-lucide="${icon}" class="w-32 h-32 text-neutral-700 transition-colors duration-500 group-hover:text-cyan-400"></i>
+                <div class="mt-6 text-center">
+                    <span class="bg-neutral-800 text-neutral-300 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-neutral-700">
+                        ${consoleData.type}
+                    </span>
+                    <div class="mt-2 text-[10px] text-neutral-500 font-mono">${state.region}</div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function buildAnimationHTML(type, artUrl) {
+            const artBlock = `<img src="${artUrl}" class="media-art w-full h-full object-cover">
+                              <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none"></div>`;
+
+            if (type === 'cartridge') {
+                return `
+                    <div class="relative w-80 h-80 flex flex-col items-center justify-end perspective-1000">
+                        
+                        <!-- NEW CONSOLE TOP DECK -->
+                        <div class="absolute bottom-0 w-[120%] h-32 bg-[#1a1a1a] rounded-t-xl border-t border-neutral-700 shadow-2xl flex items-start justify-center z-30 overflow-hidden">
+                             <!-- The Recessed Bay -->
+                             <div class="w-[80%] h-full bg-[#050505] shadow-[inset_0_10px_30px_rgba(0,0,0,1)] border-x border-neutral-800 relative mt-4">
+                                <div class="absolute top-0 w-full h-2 bg-gradient-to-b from-black to-transparent opacity-80"></div>
+                             </div>
+                             <!-- Deck Details -->
+                             <div class="absolute top-2 w-[85%] h-0.5 bg-neutral-600 opacity-20"></div>
+                        </div>
+
+                        <!-- CARTRIDGE -->
+                        <div class="cart-container relative z-10 w-64 h-64 bg-neutral-800 rounded-t-md border-x-4 border-t-4 border-neutral-700 flex flex-col items-center shadow-xl">
+                            <!-- Grip -->
+                            <div class="w-full h-8 flex flex-col justify-center gap-1 mt-4 opacity-50 border-b border-neutral-700 pb-2">
+                                <div class="w-full h-0.5 bg-black"></div><div class="w-full h-0.5 bg-black"></div>
+                            </div>
+                            <!-- Label Area -->
+                            <div class="mt-2 w-[88%] h-[65%] bg-[#0a0a0a] rounded-sm overflow-hidden relative border border-neutral-600 shadow-inner">
+                                ${artBlock}
+                            </div>
+                            <!-- Chip Edge Visual -->
+                            <div class="absolute -bottom-2 w-[90%] h-4 bg-green-900/50 rounded-b"></div>
+                        </div>
+                    </div>`;
+            } 
+            else if (type === 'slot') {
+                return `
+                    <div class="relative w-96 h-96 flex items-center justify-center perspective-1000">
+                        
+                        <!-- BOTTOM JAW (Console Body) -->
+                        <div class="absolute z-20 w-[120%] h-32 top-[50%] bg-[#1a1a1a] border-t border-neutral-800 shadow-2xl">
+                             <!-- Lip Detail -->
+                             <div class="w-full h-1 bg-neutral-700 opacity-50"></div>
+                        </div>
+
+                        <!-- DISC LAYER (Sandwiched) -->
+                        <div class="slot-disc-wrapper relative w-72 h-72 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                            <div class="absolute inset-0 rounded-full overflow-hidden bg-neutral-800 border-[6px] border-neutral-800 animate-spin-slow">
+                                ${artBlock}
+                            </div>
+                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-[#050505] rounded-full border border-neutral-700"></div>
+                        </div>
+
+                        <!-- TOP JAW (Faceplate) -->
+                        <div class="absolute z-30 w-[120%] h-32 bottom-[50%] bg-[#1a1a1a] border-b border-black shadow-lg flex flex-col justify-end items-center">
+                            <!-- Slot Mouth Shadow -->
+                            <div class="w-[85%] h-2 bg-black rounded-full blur-[2px] opacity-80 mb-[-1px]"></div>
+                             <div class="absolute bottom-4 right-10 slot-led w-1.5 h-1.5 rounded-full bg-neutral-700"></div>
+                        </div>
+
+                    </div>`;
+            }
+            else if (type === 'tray') {
+                return `
+                    <div class="relative w-96 h-96 flex flex-col items-center justify-start perspective-1000 overflow-hidden">
+                        <div class="absolute top-0 w-full h-24 bg-[#0a0a0a] border-b border-neutral-800 z-20 flex items-end justify-center shadow-2xl">
+                             <div class="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-green-900"></div> DVD-ROM
+                             </div>
+                        </div>
+                        <div class="relative w-72 h-72 z-10 mt-20">
+                            <!-- Redesigned Receiver: PC/Console Tray -->
+                            <div class="tray-mech w-full h-full bg-[#151515] rounded-b-lg border-x border-b border-neutral-800 flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,1)]">
+                                <!-- The Circular Depression -->
+                                <div class="w-[92%] h-[92%] rounded-full bg-[#0f0f0f] shadow-[inset_0_5px_15px_black] flex items-center justify-center border border-white/5 relative">
+                                    <!-- Spindle Bump -->
+                                    <div class="absolute w-12 h-12 rounded-full bg-[#111] border border-neutral-800 shadow-lg z-0"></div>
+                                    
+                                    <div class="tray-disc w-[95%] h-[95%] rounded-full relative z-10">
+                                        <div class="absolute inset-0 rounded-full overflow-hidden border border-neutral-800 animate-spin-slow">
+                                            ${artBlock}
+                                        </div>
+                                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-[#0a0a0a] rounded-full border border-neutral-700"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            else if (type === 'card') {
+                return `
+                    <div class="relative w-48 h-72 flex items-center justify-center perspective-1000">
+                        <!-- Redesigned Receiver: Switch Dust Cover Flap -->
+                        <div class="absolute top-[-10px] w-64 h-24 bg-[#1a1a1a] border-b border-neutral-800 z-20 flex flex-col items-center justify-end pb-4 shadow-xl">
+                            <!-- The Slot Hole -->
+                            <div class="w-36 h-4 bg-black rounded-sm relative perspective-800">
+                                <!-- The Flap (Animated) -->
+                                <div class="switch-flap absolute top-0 left-0 w-full h-full bg-neutral-700 origin-top border-b border-neutral-600">
+                                    <div class="absolute bottom-1 right-2 text-[6px] text-neutral-400 font-bold">GAME CARD</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body w-32 h-44 bg-[#1a1a1a] rounded-lg border border-neutral-700 overflow-hidden shadow-2xl z-10">
+                            <div class="h-[75%] w-full relative overflow-hidden bg-neutral-800">
+                                ${artBlock}
+                            </div>
+                            <div class="w-full h-[25%] bg-[#111] flex items-center justify-center border-t border-neutral-700">
+                                <div class="w-4 h-4 rounded-full bg-neutral-800 mr-2"></div>
+                                <div class="h-1 w-12 bg-neutral-700 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            else {
+                // Spindle (GameCube)
+                return `
+                    <div class="relative w-80 h-80 flex items-center justify-center perspective-1000">
+                        <div class="w-72 h-72 rounded-full bg-[#111] border-4 border-neutral-800 shadow-[inset_0_0_60px_black] flex items-center justify-center">
+                            <div class="absolute w-64 h-64 rounded-full border border-white/5 opacity-20"></div>
+                            <div class="spindle-hub w-16 h-16 bg-black rounded-full border-4 border-neutral-700 z-0 flex items-center justify-center shadow-lg">
+                                <div class="w-6 h-6 bg-neutral-500 rounded-full shadow-inner"></div>
+                            </div>
+                        </div>
+                        <div class="spindle-disc absolute z-10 w-64 h-64 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                             <div class="absolute inset-0 rounded-full overflow-hidden border border-neutral-600 animate-spin-slow">
+                                ${artBlock}
+                            </div>
+                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-transparent rounded-full border-2 border-white/10"></div>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+        async function runAnimationSequence(type) {
+            const container = els.views.launch;
+            const stage = els.stage.container;
+            
+            // RESET
+            container.className = "w-full h-full absolute inset-0 flex flex-col items-center justify-center overflow-hidden perspective-1000";
+            stage.className = "relative z-20 w-full h-full flex items-center justify-center preserve-3d";
+            
+            // 1. INSERT (Noir)
+            await wait(100);
+            container.classList.add('stage-insert');
+            
+            let insertTime = 2000;
+            if (type === 'tray') insertTime = 2500;
+            if (type === 'spindle') insertTime = 1500;
+            if (type === 'cartridge') insertTime = 1200;
+            if (type === 'card') insertTime = 1500;
+            
+            // 2. LOCK (Impact)
+            await wait(insertTime);
+            
+            // Card Specific Logic for "Push -> Click -> Lock"
+            if (type === 'card') {
+                container.classList.add('stage-push'); // Push down
+                await wait(200);
+                container.classList.remove('stage-push'); // Spring up
+            }
+
+            container.classList.add('stage-lock');
+            stage.classList.add('impact-shake'); // Camera Shake
+
+            await wait(800);
+
+            // 3. REVEAL (Flash + Color)
+            container.classList.add('stage-reveal');
+            
+            setTimeout(() => stage.classList.remove('impact-shake'), 500);
+        }
+
+        function startLaunch() {
+            els.views.generator.classList.add('hidden');
+            els.views.launch.classList.remove('hidden');
+
+            const consoleData = getConsoleData(state.console);
+            
+            // Text Logic
+            let text = `INSERT ${state.region} ${consoleData.type.toUpperCase()}`;
+            if (state.textStyle === 'insert_disc') text = "PLEASE INSERT DISC";
+            if (state.textStyle === 'insert_card') text = "INSERT GAME CARD";
+            if (state.textStyle === 'digital_soft') text = "LAUNCHING SOFTWARE";
+            if (state.textStyle === 'system_init') text = "INITIALIZING...";
+            
+            els.stage.textInstruction.textContent = text;
+            els.stage.textTitle.textContent = els.inputs.title.value || state.title;
+
+            const artUrl = MetadataService.getArtUrl(state.id, state.console, state.regionCode);
+            els.stage.container.innerHTML = buildAnimationHTML(consoleData.type, artUrl);
+            
+            // Fallback
+            const img = els.stage.container.querySelector('img');
+            if(img) img.onerror = () => { img.src = 'https://placehold.co/400x400/111/333?text=NO+SIGNAL'; };
+
+            runAnimationSequence(consoleData.type);
+        }
+
+        function resetApp() {
+            els.views.launch.classList.add('hidden');
+            els.views.generator.classList.remove('hidden');
+            els.views.launch.className = "w-full h-full absolute inset-0 hidden flex flex-col items-center justify-center overflow-hidden perspective-1000";
+        }
+
+        // Init
+        lucide.createIcons();
+        els.inputs.console.addEventListener('change', () => { MetadataService.update(); updateGeneratorUI(); });
+        els.inputs.id.addEventListener('input', () => { MetadataService.update(); updateGeneratorUI(); });
+        els.inputs.title.addEventListener('input', (e) => { state.title = e.target.value; updateGeneratorUI(); });
+        els.inputs.textStyle.addEventListener('change', (e) => { state.textStyle = e.target.value; updateGeneratorUI(); });
+        els.buttons.copy.addEventListener('click', () => { navigator.clipboard.writeText(els.output.textContent); });
+        els.buttons.launch.addEventListener('click', startLaunch);
+        els.buttons.reset.addEventListener('click', resetApp);
+        
+        // NEW LISTENER FOR FETCH
+        els.buttons.fetch.addEventListener('click', () => {
+            MetadataService.fetchTitle(state.id, state.console);
+        });
+        
+        MetadataService.update();
+        updateGeneratorUI();
+
+    </script>
+</body>
+</html>
