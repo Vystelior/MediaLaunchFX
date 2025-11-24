@@ -234,17 +234,17 @@
                                 <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Platform</label>
                                 <select id="input-console" class="w-full bg-black text-white border border-neutral-800 rounded p-3 focus:border-cyan-500 outline-none uppercase font-mono text-sm">
                                     <optgroup label="Nintendo">
+                                        <option value="gc" selected>GameCube (Spindle)</option>
                                         <option value="nes">NES (Cartridge)</option>
                                         <option value="snes">SNES (Cartridge)</option>
                                         <option value="n64">N64 (Cartridge)</option>
-                                        <option value="gc">GameCube (Spindle)</option>
                                         <option value="wii">Wii (Slot Load)</option>
                                         <option value="wiiu">Wii U (Slot Load)</option>
                                         <option value="switch">Switch (Game Card)</option>
                                     </optgroup>
                                     <optgroup label="PlayStation">
                                         <option value="ps1">PlayStation 1 (Spindle)</option>
-                                        <option value="ps2" selected>PlayStation 2 (Motor Tray)</option>
+                                        <option value="ps2">PlayStation 2 (Motor Tray)</option>
                                         <option value="ps5">PlayStation 5 (Slot Load)</option>
                                     </optgroup>
                                     <optgroup label="Xbox">
@@ -259,10 +259,6 @@
                                     <input id="input-id" type="text" value="GUPP8P" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase" placeholder="e.g. GUPP8P">
                                     <div id="region-badge" class="absolute right-3 top-3 text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-cyan-400 font-bold hidden">DETECTING...</div>
                                 </div>
-                                <!-- FETCH BUTTON -->
-                                <button id="btn-fetch-meta" class="mt-2 w-full text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white py-1 rounded transition-colors uppercase tracking-wider flex items-center justify-center gap-1">
-                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Auto-Fetch Metadata
-                                </button>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Boot Text</label>
@@ -378,7 +374,6 @@
                 copy: document.getElementById('btn-copy'), 
                 launch: document.getElementById('btn-launch'), 
                 reset: document.getElementById('btn-reset'),
-                fetch: document.getElementById('btn-fetch-meta'),
                 clearTitle: document.getElementById('btn-clear-title')
             },
             stage: { container: document.getElementById('animation-stage'), textInstruction: document.getElementById('text-instruction'), textTitle: document.getElementById('text-title') }
@@ -433,110 +428,18 @@
                 return `https://art.gametdb.com/${platform}/${type}/${artRegion}/${id}.png`; 
             },
 
-            // --- FETCH TITLE FROM GAMETDB VIA PROXY ---
-            fetchTitle: async (id, consoleType) => {
-                const currentId = id.toUpperCase();
-                let platform = consoleType === 'gc' ? 'Wii' : consoleType.charAt(0).toUpperCase() + consoleType.slice(1);
-                if(consoleType === 'wiiu') platform = 'WiiU';
-                if(consoleType === 'ps1') platform = 'PS1';
-                if(consoleType === 'ps2') platform = 'PS2';
-                if(consoleType === 'switch') platform = 'Switch';
-                if(consoleType === 'nes') platform = 'NES';
-                if(consoleType === 'snes') platform = 'SNES';
-                if(consoleType === 'n64') platform = 'N64';
-                
-                const gameTdbUrl = `https://www.gametdb.com/${platform}/${currentId}`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(gameTdbUrl)}&rand=${Date.now()}`;
-                
-                // Visual feedback
-                els.inputs.title.disabled = true;
-                els.inputs.title.value = "SEARCHING...";
-                
-                try {
-                    const response = await fetch(proxyUrl);
-                    if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
-                    const data = await response.json();
-                    
-                    if (data.contents) {
-                        const htmlText = data.contents;
-                        const matches = htmlText.match(/<title>(.*?)<\/title>/);
-                        
-                        if (matches && matches[1]) {
-                            let rawTitle = matches[1];
-                            
-                            // Check for Generic/Error pages
-                            if (rawTitle.includes("Video Game Database") && !rawTitle.includes("[")) {
-                                throw new Error("Generic Page Returned (Possible 404)");
-                            }
-                            
-                            // 1. Extract Region from Parentheses
-                            const regionMatch = rawTitle.match(/\((.*?)\)/);
-                            if (regionMatch && regionMatch[1]) {
-                                const regionStr = regionMatch[1];
-                                if (regionStr.includes(',')) {
-                                    state.region = "REGION FREE";
-                                    state.regionCode = 'EN'; 
-                                } else {
-                                    state.region = regionStr;
-                                    state.regionCode = regionStr; 
-                                }
-                                els.badges.region.textContent = state.region;
-                                els.badges.region.classList.remove('hidden');
-                            }
-
-                            // 2. Cleanup Title Text
-                            rawTitle = rawTitle.replace(/ - GameTDB/i, '');
-                            rawTitle = rawTitle.replace(/ – GameTDB/i, ''); 
-                            
-                            const idPrefixPattern = new RegExp(`^${currentId}\\s*-\\s*`, 'i');
-                            rawTitle = rawTitle.replace(idPrefixPattern, '');
-
-                            const idBracketPattern = new RegExp(`\\[${currentId}\\]`, 'i');
-                            rawTitle = rawTitle.replace(idBracketPattern, '');
-                            
-                            rawTitle = rawTitle.replace(/\(.*?\)/g, '');
-                            rawTitle = rawTitle.trim();
-                            
-                            const txt = document.createElement("textarea");
-                            txt.innerHTML = rawTitle;
-                            rawTitle = txt.value;
-
-                            state.title = rawTitle;
-                            els.inputs.title.value = rawTitle;
-                            els.inputs.title.disabled = false; 
-                            updateGeneratorUI();
-                            return; 
-                        } else {
-                            throw new Error("Title tag not found");
-                        }
-                    } else {
-                        throw new Error("No content");
-                    }
-                } catch (e) {
-                    console.warn("Fetch failed, fallback to manual.", e);
-                    els.inputs.title.disabled = false;
-                    els.inputs.title.value = "";
-                    els.inputs.title.placeholder = "Not Found - Enter Title Manually";
-                    els.inputs.title.focus();
-                } finally {
-                    els.inputs.title.disabled = false;
-                    updateGeneratorUI();
-                }
-            },
-
             update: () => {
                 const id = els.inputs.id.value.toUpperCase();
                 const consoleType = els.inputs.console.value;
                 
-                // Only update region if we haven't fetched a specific one
-                // or if user manually changed ID significantly
-                if (state.id !== id && id.length > 3) {
-                    const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
-                    state.region = regionInfo.label;
-                    state.regionCode = regionInfo.code;
-                    els.badges.region.textContent = state.region;
-                    els.badges.region.classList.remove('hidden');
-                }
+                // Default detection
+                const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
+                
+                state.region = regionInfo.label;
+                state.regionCode = regionInfo.code;
+                
+                els.badges.region.textContent = state.region;
+                els.badges.region.classList.remove('hidden');
                 
                 state.id = id;
                 state.console = consoleType;
@@ -626,7 +529,7 @@
             }, 2000);
         }
 
-        function buildAnimationHTML(type, artUrl) {
+        function buildAnimationHTML(type, artUrl, consoleKey) {
             const artBlock = `<img src="${artUrl}" class="media-art w-full h-full object-cover">
                               <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none"></div>`;
 
@@ -713,7 +616,14 @@
                     </div>`;
             }
             else {
-                // Spindle (GameCube)
+                // Spindle (GameCube / PS1)
+                
+                // MINI DISC ADJUSTMENT FOR GAMECUBE
+                let discSize = "w-64 h-64"; // Standard
+                if (consoleKey === 'gc') {
+                    discSize = "w-44 h-44"; // Mini Disc
+                }
+
                 return `
                     <div class="relative w-80 h-80 flex items-center justify-center perspective-1000">
                         <div class="w-72 h-72 rounded-full bg-[#111] border-4 border-neutral-800 shadow-[inset_0_0_60px_black] flex items-center justify-center">
@@ -722,7 +632,7 @@
                                 <div class="w-6 h-6 bg-neutral-500 rounded-full shadow-inner"></div>
                             </div>
                         </div>
-                        <div class="spindle-disc absolute z-10 w-64 h-64 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        <div class="spindle-disc absolute z-10 ${discSize} rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                              <div class="absolute inset-0 rounded-full overflow-hidden border border-neutral-600 animate-spin-slow">
                                 ${artBlock}
                             </div>
@@ -790,7 +700,7 @@
             els.stage.textTitle.textContent = els.inputs.title.value || state.title;
 
             const artUrl = MetadataService.getArtUrl(state.id, state.console, state.regionCode);
-            els.stage.container.innerHTML = buildAnimationHTML(consoleData.type, artUrl);
+            els.stage.container.innerHTML = buildAnimationHTML(consoleData.type, artUrl, state.console);
             
             // Fallback
             const img = els.stage.container.querySelector('img');
@@ -817,7 +727,6 @@
             els.buttons.copy.addEventListener('click', handleCopyURL);
             els.buttons.launch.addEventListener('click', startLaunch);
             els.buttons.reset.addEventListener('click', resetApp);
-            els.buttons.fetch.addEventListener('click', () => { MetadataService.fetchTitle(state.id, state.console); });
             
             // CLEAR TITLE BUTTON
             els.buttons.clearTitle.addEventListener('click', () => {
