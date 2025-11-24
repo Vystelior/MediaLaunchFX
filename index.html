@@ -180,9 +180,23 @@
         #launch-view { transition: background-color 3s; background-color: #050505; }
         .stage-reveal #launch-view { background-color: #0f172a; } 
 
-        #launch-text { transition: all 0.5s; opacity: 0; transform: translateY(20px); }
-        .stage-lock #launch-text { opacity: 1; transform: translateY(0); }
-        .stage-reveal #launch-text { opacity: 0; transform: scale(1.1); filter: blur(4px); }
+        /* UPDATED TEXT TRANSITION: DELAYED FADE OUT */
+        #launch-text { 
+            transition: opacity 1s ease-out, transform 1s ease-out; 
+            opacity: 0; 
+            transform: translateY(20px); 
+        }
+        .stage-lock #launch-text { 
+            opacity: 1; 
+            transform: translateY(0); 
+        }
+        .stage-reveal #launch-text { 
+            opacity: 0; 
+            transform: scale(1.1); 
+            filter: blur(4px);
+            /* Keeps text visible for 1.5s during the reveal/flash before fading */
+            transition-delay: 1.5s; 
+        }
 
         .bg-grid {
             background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
@@ -274,7 +288,7 @@
                             <div id="preview-icon-container" class="relative z-10 flex flex-col items-center"></div>
                         </div>
                         <div class="bg-neutral-900 rounded-xl p-4 flex flex-col gap-3 border border-neutral-800">
-                            <div id="url-output" class="bg-black rounded p-3 font-mono text-xs text-neutral-500 break-all border border-neutral-800">https://medialaunchfx.com...</div>
+                            <div id="url-output" class="bg-black rounded p-3 font-mono text-xs text-neutral-500 break-all border border-neutral-800">https://medialaunchfx.vercel.app/...</div>
                             <div class="flex gap-2">
                                 <button id="btn-copy" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded font-bold flex items-center justify-center gap-2 transition-all text-xs uppercase tracking-wider">
                                     <i data-lucide="copy" class="w-4 h-4"></i> <span id="copy-text">Copy</span>
@@ -394,14 +408,22 @@
             getArtUrl: (id, consoleType, regionCode) => {
                 id = id.toUpperCase();
                 if (consoleType === 'switch') {
-                    return `https://art.gametdb.com/switch/cart/${regionCode}/${id}.png`;
+                    // Ensure we use a valid code for GameTDB structure even if displayed as "REGION FREE"
+                    let artRegion = regionCode;
+                    if (state.region === "REGION FREE" || state.region === "MULTI") artRegion = 'EN'; 
+                    return `https://art.gametdb.com/switch/cart/${artRegion}/${id}.png`;
                 }
                 let platform = consoleType === 'gc' ? 'wii' : consoleType;
                 const type = ['nes', 'snes', 'n64'].includes(consoleType) ? 'cover' : 'disc';
-                return `https://art.gametdb.com/${platform}/${type}/${regionCode}/${id}.png`; 
+                
+                // Handle region free art fallback to EN or US
+                let artRegion = regionCode;
+                if (state.region === "REGION FREE" || state.region === "MULTI") artRegion = 'EN';
+
+                return `https://art.gametdb.com/${platform}/${type}/${artRegion}/${id}.png`; 
             },
 
-            // --- NEW: FETCH TITLE FROM GAMETDB VIA PROXY ---
+            // --- FETCH TITLE FROM GAMETDB VIA PROXY ---
             fetchTitle: async (id, consoleType) => {
                 id = id.toUpperCase();
                 let platform = consoleType === 'gc' ? 'Wii' : consoleType.charAt(0).toUpperCase() + consoleType.slice(1);
@@ -413,9 +435,9 @@
                 if(consoleType === 'snes') platform = 'SNES';
                 if(consoleType === 'n64') platform = 'N64';
                 
-                // Use corsproxy.io as a more stable alternative to allorigins.win
                 const gameTdbUrl = `https://www.gametdb.com/${platform}/${id}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(gameTdbUrl)}`;
+                // Use AllOrigins which returns JSON
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(gameTdbUrl)}&rand=${Date.now()}`;
                 
                 try {
                     els.inputs.title.value = "SEARCHING...";
@@ -424,34 +446,68 @@
                     const response = await fetch(proxyUrl);
                     
                     if (!response.ok) {
-                        throw new Error(`Network response was not ok: ${response.status}`);
+                        throw new Error(`Proxy Error: ${response.status}`);
                     }
                     
-                    const htmlText = await response.text();
+                    const data = await response.json();
                     
-                    // Simple Regex to extract title tag
-                    const matches = htmlText.match(/<title>(.*?)<\/title>/);
-                    
-                    if (matches && matches[1]) {
-                        // Format is usually "Game Name [ID] - GameTDB"
-                        let rawTitle = matches[1];
-                        rawTitle = rawTitle.split('[')[0].trim();
-                        rawTitle = rawTitle.replace(' - GameTDB', '').trim();
+                    if (data.contents) {
+                        const htmlText = data.contents;
+                        const matches = htmlText.match(/<title>(.*?)<\/title>/);
                         
-                        // Decode HTML entities if needed
-                        const txt = document.createElement("textarea");
-                        txt.innerHTML = rawTitle;
-                        rawTitle = txt.value;
+                        if (matches && matches[1]) {
+                            // Full Title: "Game Name [ID] (Region) - GameTDB"
+                            let rawTitle = matches[1];
+                            
+                            // 1. Extract Region from Parentheses
+                            const regionMatch = rawTitle.match(/\((.*?)\)/);
+                            if (regionMatch && regionMatch[1]) {
+                                const regionStr = regionMatch[1];
+                                // Check for multiple regions (commas)
+                                if (regionStr.includes(',')) {
+                                    state.region = "REGION FREE";
+                                    // We keep code as 'EN' or 'US' for art fetching purposes usually
+                                    state.regionCode = 'EN'; 
+                                } else {
+                                    state.region = regionStr;
+                                    state.regionCode = regionStr; // Simple mapping
+                                }
+                                
+                                // Update UI Badge immediately
+                                els.badges.region.textContent = state.region;
+                                els.badges.region.classList.remove('hidden');
+                            }
 
-                        state.title = rawTitle;
-                        els.inputs.title.value = rawTitle;
+                            // 2. Cleanup Title Text
+                            rawTitle = rawTitle.replace(/ - GameTDB/i, '');
+                            rawTitle = rawTitle.replace(/ – GameTDB/i, ''); 
+                            
+                            const idPrefixPattern = new RegExp(`^${id}\\s*-\\s*`, 'i');
+                            rawTitle = rawTitle.replace(idPrefixPattern, '');
+
+                            const idBracketPattern = new RegExp(`\\[${id}\\]`, 'i');
+                            rawTitle = rawTitle.replace(idBracketPattern, '');
+                            
+                            // Remove region text from title string
+                            rawTitle = rawTitle.replace(/\(.*?\)/g, '');
+
+                            rawTitle = rawTitle.trim();
+                            
+                            const txt = document.createElement("textarea");
+                            txt.innerHTML = rawTitle;
+                            rawTitle = txt.value;
+
+                            state.title = rawTitle;
+                            els.inputs.title.value = rawTitle;
+                        } else {
+                            throw new Error("Title tag not found in page content");
+                        }
                     } else {
-                        // If standard parse fails, maybe try to read error or fallback
-                        throw new Error("Title tag not found in response");
+                        throw new Error("No content returned from proxy");
                     }
                 } catch (e) {
-                    console.warn("Auto-fetch failed, falling back to manual entry.", e);
-                    els.inputs.title.value = "Unknown Title (Enter Manual)";
+                    console.warn("Fetch failed:", e);
+                    els.inputs.title.value = "Not Found (Enter Manual)";
                 } finally {
                     els.inputs.title.disabled = false;
                     updateGeneratorUI();
@@ -461,6 +517,8 @@
             update: () => {
                 const id = els.inputs.id.value.toUpperCase();
                 const consoleType = els.inputs.console.value;
+                
+                // Default detection (overridden if fetch is used)
                 const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
                 state.region = regionInfo.label;
                 state.regionCode = regionInfo.code;
@@ -481,7 +539,7 @@
 
         function updateGeneratorUI() {
             const consoleData = getConsoleData(state.console);
-            els.output.textContent = `https://medialaunchfx.com/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}`;
+            els.output.textContent = `https://medialaunchfx.vercel.app/play?id=${state.id}&c=${state.console}&txt=${state.textStyle}`;
             
             let icon = 'disc';
             if (consoleData.type === 'cartridge') icon = 'save';
@@ -497,6 +555,51 @@
                 </div>
             `;
             lucide.createIcons();
+        }
+
+        // --- UPDATED COPY FUNCTIONALITY ---
+        function handleCopyURL() {
+            const text = els.output.textContent;
+            
+            // Robust Copy Logic (Fallback for iframes)
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(showCopySuccess);
+            } else {
+                // Textarea fallback
+                let textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showCopySuccess();
+                } catch (err) {
+                    console.error('Fallback copy failed', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function showCopySuccess() {
+            const btn = els.buttons.copy;
+            const originalHTML = btn.innerHTML;
+            
+            // Change to Success State
+            btn.classList.remove('bg-neutral-800', 'text-white');
+            btn.classList.add('bg-green-600', 'text-white');
+            btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> COPIED!`;
+            lucide.createIcons();
+
+            // Revert after 2s
+            setTimeout(() => {
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-neutral-800');
+                btn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i> Copy`;
+                lucide.createIcons();
+            }, 2000);
         }
 
         function buildAnimationHTML(type, artUrl) {
@@ -704,23 +807,48 @@
             els.views.launch.className = "w-full h-full absolute inset-0 hidden flex flex-col items-center justify-center overflow-hidden perspective-1000";
         }
 
-        // Init
-        lucide.createIcons();
-        els.inputs.console.addEventListener('change', () => { MetadataService.update(); updateGeneratorUI(); });
-        els.inputs.id.addEventListener('input', () => { MetadataService.update(); updateGeneratorUI(); });
-        els.inputs.title.addEventListener('input', (e) => { state.title = e.target.value; updateGeneratorUI(); });
-        els.inputs.textStyle.addEventListener('change', (e) => { state.textStyle = e.target.value; updateGeneratorUI(); });
-        els.buttons.copy.addEventListener('click', () => { navigator.clipboard.writeText(els.output.textContent); });
-        els.buttons.launch.addEventListener('click', startLaunch);
-        els.buttons.reset.addEventListener('click', resetApp);
-        
-        // NEW LISTENER FOR FETCH
-        els.buttons.fetch.addEventListener('click', () => {
-            MetadataService.fetchTitle(state.id, state.console);
-        });
-        
-        MetadataService.update();
-        updateGeneratorUI();
+        // --- INIT ---
+        function init() {
+            lucide.createIcons();
+            
+            // Listeners
+            els.inputs.console.addEventListener('change', () => { MetadataService.update(); updateGeneratorUI(); });
+            els.inputs.id.addEventListener('input', () => { MetadataService.update(); updateGeneratorUI(); });
+            els.inputs.title.addEventListener('input', (e) => { state.title = e.target.value; updateGeneratorUI(); });
+            els.inputs.textStyle.addEventListener('change', (e) => { state.textStyle = e.target.value; updateGeneratorUI(); });
+            els.buttons.copy.addEventListener('click', handleCopyURL);
+            els.buttons.launch.addEventListener('click', startLaunch);
+            els.buttons.reset.addEventListener('click', resetApp);
+            els.buttons.fetch.addEventListener('click', () => { MetadataService.fetchTitle(state.id, state.console); });
+
+            // URL Param Parsing
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('id') && params.has('c')) {
+                state.id = params.get('id');
+                state.console = params.get('c');
+                if (params.has('txt')) state.textStyle = params.get('txt');
+                if (params.has('title')) {
+                     state.title = decodeURIComponent(params.get('title'));
+                     els.inputs.title.value = state.title;
+                } else {
+                     MetadataService.update(); 
+                }
+                
+                // Sync Inputs
+                els.inputs.id.value = state.id;
+                els.inputs.console.value = state.console;
+                els.inputs.textStyle.value = state.textStyle;
+                
+                // Auto Launch
+                startLaunch();
+            } else {
+                // Manual Mode
+                MetadataService.update();
+                updateGeneratorUI();
+            }
+        }
+
+        init();
 
     </script>
 </body>
