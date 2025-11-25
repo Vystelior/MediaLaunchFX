@@ -218,7 +218,7 @@
         }
         .stage-reveal .tray-disc { opacity: 0; transition: opacity 0.2s; }
 
-        /* 5. SPINDLE (GameCube / Top Loaders) */
+        /* 5. SPINDLE (GameCube) */
         .gc-console-body {
             transform: scale(0.8) rotateX(20deg);
             transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1);
@@ -238,20 +238,21 @@
         }
 
         .spindle-disc {
-            /* Start: High above, Flat parallel to screen */
-            transform: scale(1.5) translateY(-400px) translateZ(100px) rotateX(50deg); 
+            /* Start: High above, Tilted matching perspective */
+            transform: scale(2.0) translateY(-500px) translateZ(200px) rotateX(50deg);
             opacity: 0;
-            transition: all 0.6s cubic-bezier(0.6, 0.04, 0.98, 0.335); /* Falling physics */
+            transition: all 0.6s cubic-bezier(0.6, 0.04, 0.98, 0.335);
         }
         .stage-insert .spindle-disc {
-            /* Snap: Move down to 0, Match console angle (50deg) */
-            transform: scale(1) translateY(0) translateZ(0) rotateX(50deg);
+            /* Snap: Match Console Position EXACTLY (Scale 1.3, Y 60px) */
+            /* This ensures it sits perfectly in the middle of the zoomed console */
+            transform: scale(1.3) translateY(60px) translateZ(0) rotateX(50deg);
             opacity: 1;
             transition-delay: 0.6s; 
         }
         .stage-lock .spindle-disc, .stage-reveal .spindle-disc {
-            /* Stay: locked on spindle */
-            transform: scale(1) translateY(0) translateZ(0) rotateX(50deg);
+            /* Stay Locked */
+            transform: scale(1.3) translateY(60px) translateZ(0) rotateX(50deg);
             opacity: 1;
         }
         
@@ -873,7 +874,7 @@
                 let spindleHTML = '';
                 
                 if (consoleKey === 'gc') {
-                    discSize = "w-56 h-56"; /* CHANGED SIZE: Fuller, bigger mini disc */
+                    discSize = "w-60 h-60"; /* INCREASED SIZE: Fuller look */
                     spindleHTML = `
                         <div class="gc-console-body relative w-96 h-80 bg-indigo-900 rounded-xl shadow-2xl border border-indigo-800 flex items-center justify-center perspective-800">
                             <div class="absolute top-2 text-center w-full text-indigo-300 font-bold text-[10px] tracking-widest">NINTENDO GAMECUBE</div>
