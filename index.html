@@ -70,8 +70,8 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            /* Start position: Hidden behind/near the console slot */
-            transform: translate(-250%, -50%) rotateY(90deg) scale(0.8);
+            /* Start position: Hidden deeper behind the console */
+            transform: translate(-250%, -50%) rotateY(60deg) scale(0.8);
             opacity: 0;
             transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy reveal */
             z-index: 60;
@@ -79,13 +79,11 @@
         }
         
         .stage-reveal .cover-3d-wrapper {
-            /* End position: To the left of the console */
-            transform: translate(-180%, -50%) rotateY(0deg) scale(1);
+            /* End position: Left of console, slightly angled towards viewer */
+            transform: translate(-170%, -50%) rotateY(15deg) scale(1.1);
             opacity: 1;
         }
 
-        /* Removed .cover-shadow styling as requested */
-        
         /* The "Flash" Overlay */
         #flash-overlay {
             position: absolute;
@@ -107,51 +105,50 @@
 
         /* --- PHYSICS ENGINE (Specific Animations) --- */
 
-        /* 1. CARTRIDGE (Top Loader - NES/SNES/N64) */
+        /* 1. CARTRIDGE (Top Loader) */
         .cart-container {
-            transform: translateY(-400px) rotateX(10deg);
+            transform: translateY(-450px) rotateX(15deg);
             transition: transform 0.6s cubic-bezier(0.5, 0, 0.75, 0);
         }
         .stage-insert .cart-container {
-            transform: translateY(-80px) rotateX(0deg); /* Hover above slot */
+            transform: translateY(-90px) rotateX(0deg); /* Hover perfectly vertical above slot */
             transition: transform 0.8s ease-out;
         }
         .stage-lock .cart-container, .stage-reveal .cart-container {
-            transform: translateY(40px); /* Deep into console */
+            transform: translateY(30px); /* Snap deep into socket */
             transition: transform 0.15s cubic-bezier(0.8, 0, 1, 0); /* Heavy Slam */
         }
 
-        /* 2. SLOT LOADER (Sandwich Layering) */
-        /* Disc visually starts above the mechanism */
+        /* 2. SLOT LOADER */
         .slot-disc-wrapper {
-            transform: translateY(300px) scale(0.9) rotateX(50deg);
+            /* Start: Low, tilted up towards slot */
+            transform: translateY(350px) scale(0.9) rotateX(60deg);
             transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
             opacity: 0;
-            z-index: 35; /* On top of the slot mechanism (z-index 30, 40) */
+            z-index: 35;
         }
         .stage-insert .slot-disc-wrapper {
-            /* Align perfectly flush with the slot mouth (Leveling out) */
+            /* Align: Flush with mouth, leveled out */
             transform: translateY(0px) scale(0.95) rotateX(0deg); 
             opacity: 1;
         }
         .stage-lock .slot-disc-wrapper {
-            /* Slide INTO the machine */
-            transform: translateY(-150px) scale(0.95); 
+            /* Insert: Slide up deep into the machine */
+            transform: translateY(-200px) scale(0.95); 
             transition: all 0.4s cubic-bezier(0.6, 0.04, 0.98, 0.335); /* Mechanical intake */
         }
         .stage-reveal .slot-disc-wrapper {
-            /* Disappear completely after insertion to show 3D cover */
             opacity: 0; 
-            transform: translateY(-150px) scale(0.95);
+            transform: translateY(-200px) scale(0.95);
             transition: opacity 0.2s ease-out;
         }
 
-        /* Slot mechanism itself */
+        /* Slot mechanism layers */
         .slot-bottom-jaw {
             position: absolute;
-            z-index: 30; /* Below disc */
+            z-index: 30; 
             width: 120%;
-            height: 32px; /* Original height */
+            height: 32px;
             top: 50%;
             background-color: #1a1a1a;
             border-top: 1px solid #262626;
@@ -160,10 +157,10 @@
 
         .slot-top-jaw {
             position: absolute;
-            z-index: 40; /* Below disc, but above bottom jaw */
+            z-index: 40;
             width: 120%;
-            height: 300px; /* INCREASED HEIGHT TO MASK DISC */
-            bottom: 50%; 
+            height: 300px; /* Tall mask to hide disc as it enters */
+            bottom: 50%;
             background-color: #1a1a1a;
             border-bottom: 1px solid #000;
             box-shadow: 0 -10px 15px rgba(0,0,0,0.3);
@@ -209,25 +206,55 @@
             transition: transform 1.2s ease-in; 
         }
         .tray-disc {
-            transform: translateY(-500px);
+            transform: translateY(-500px) rotateX(10deg);
             opacity: 0;
             transition: transform 0.8s ease-in, opacity 0.5s;
         }
         .stage-insert .tray-disc {
-            transform: translateY(0); opacity: 1; transition-delay: 1.0s; 
+            /* Land perfectly flat in the tray circle */
+            transform: translateY(0) rotateX(0deg); 
+            opacity: 1; 
+            transition-delay: 1.0s; 
         }
-        .stage-reveal .tray-disc { opacity: 0; transition: opacity 0.2s; } /* Hide disc on reveal */
+        .stage-reveal .tray-disc { opacity: 0; transition: opacity 0.2s; }
 
-        /* 5. SPINDLE (GameCube) */
-        .spindle-disc {
-            transform: scale(2) translateZ(200px) rotateZ(45deg);
-            opacity: 0;
-            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* 5. SPINDLE (GameCube / Top Loaders) */
+        .gc-console-body {
+            transform: scale(0.8) rotateX(20deg);
+            transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1);
         }
-        .stage-insert .spindle-disc, .stage-lock .spindle-disc, .stage-reveal .spindle-disc {
-            transform: scale(1) translateZ(0) rotateZ(0deg);
+        .stage-insert .gc-console-body {
+            /* Zoom in to look down into the bay (rotateX 50deg) */
+            transform: scale(1.3) rotateX(50deg) translateY(60px); 
+        }
+        
+        .gc-lid {
+            transform-origin: top center;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotateX(0deg);
+        }
+        .stage-open .gc-lid, .stage-insert .gc-lid, .stage-lock .gc-lid, .stage-reveal .gc-lid {
+            transform: rotateX(110deg);
+        }
+
+        .spindle-disc {
+            /* Start: High above, Flat parallel to screen */
+            transform: scale(1.5) translateY(-400px) translateZ(100px) rotateX(50deg); 
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.6, 0.04, 0.98, 0.335); /* Falling physics */
+        }
+        .stage-insert .spindle-disc {
+            /* Snap: Move down to 0, Match console angle (50deg) */
+            transform: scale(1) translateY(0) translateZ(0) rotateX(50deg);
+            opacity: 1;
+            transition-delay: 0.6s; 
+        }
+        .stage-lock .spindle-disc, .stage-reveal .spindle-disc {
+            /* Stay: locked on spindle */
+            transform: scale(1) translateY(0) translateZ(0) rotateX(50deg);
             opacity: 1;
         }
+        
         .spindle-hub { transition: transform 0.1s; }
         .stage-lock .spindle-hub { transform: scale(0.95); }
 
@@ -235,7 +262,6 @@
         #launch-view { transition: background-color 3s; background-color: #050505; }
         .stage-reveal #launch-view { background-color: #0f172a; } 
 
-        /* UPDATED TEXT TRANSITION: EXTENDED DURATION */
         #launch-text { 
             transition: opacity 1s ease-out, transform 1s ease-out; 
             opacity: 0; 
@@ -249,7 +275,6 @@
             opacity: 0; 
             transform: scale(1.1); 
             filter: blur(4px);
-            /* Keeps text visible for 4s during the reveal before fading */
             transition-delay: 4s; 
         }
 
@@ -314,6 +339,10 @@
                                     <input id="input-id" type="text" value="GUPP8P" class="w-full bg-black text-white border border-neutral-800 rounded p-3 font-mono text-sm focus:border-cyan-500 outline-none uppercase" placeholder="e.g. GUPP8P">
                                     <div id="region-badge" class="absolute right-3 top-3 text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-cyan-400 font-bold hidden">DETECTING...</div>
                                 </div>
+                                <!-- FETCH BUTTON -->
+                                <button id="btn-fetch-meta" class="mt-2 w-full text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white py-1 rounded transition-colors uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Auto-Fetch Metadata
+                                </button>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Boot Text</label>
@@ -335,7 +364,7 @@
                                 </div>
                             </div>
                             
-                            <!-- NEW: INSTRUCTIONS INPUT -->
+                            <!-- INSTRUCTIONS INPUT -->
                             <div>
                                 <label class="block text-xs font-bold text-neutral-500 uppercase mb-2">Custom Instructions (Optional)</label>
                                 <textarea id="input-instructions" class="w-full bg-black text-white border border-neutral-800 rounded p-3 focus:border-cyan-500 outline-none font-sans text-sm h-24" placeholder="e.g. Press Start&#10;Hold A for 60Hz"></textarea>
@@ -440,7 +469,8 @@
                 copy: document.getElementById('btn-copy'), 
                 launch: document.getElementById('btn-launch'), 
                 reset: document.getElementById('btn-reset'),
-                clearTitle: document.getElementById('btn-clear-title')
+                clearTitle: document.getElementById('btn-clear-title'),
+                fetch: document.getElementById('btn-fetch-meta')
             },
             stage: { 
                 container: document.getElementById('animation-stage'), 
@@ -457,7 +487,7 @@
             region: 'PAL',
             regionCode: 'EN',
             textStyle: 'auto',
-            instructions: '' // New state for instructions
+            instructions: '' 
         };
 
         // --- CORE FUNCTIONS ---
@@ -496,7 +526,6 @@
                 return `https://art.gametdb.com/${platform}/${type}/${artRegion}/${id}.png`; 
             },
 
-            // Get 3D Cover URL for the "Shelf View" effect
             get3DCoverUrl: (id, consoleType, regionCode) => {
                 id = id.toUpperCase();
                 let artRegion = regionCode;
@@ -513,10 +542,91 @@
                 return `https://art.gametdb.com/${platform}/cover3D/${artRegion}/${id}.png`;
             },
 
+            // --- FETCH TITLE FROM GAMETDB VIA PROXY ---
+            fetchTitle: async (id, consoleType) => {
+                const currentId = id.toUpperCase();
+                let platform = consoleType === 'gc' ? 'Wii' : consoleType.charAt(0).toUpperCase() + consoleType.slice(1);
+                if(consoleType === 'wiiu') platform = 'WiiU';
+                if(consoleType === 'ps1') platform = 'PS1';
+                if(consoleType === 'ps2') platform = 'PS2';
+                if(consoleType === 'switch') platform = 'Switch';
+                if(consoleType === 'nes') platform = 'NES';
+                if(consoleType === 'snes') platform = 'SNES';
+                if(consoleType === 'n64') platform = 'N64';
+                
+                const gameTdbUrl = `https://www.gametdb.com/${platform}/${currentId}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(gameTdbUrl)}&rand=${Date.now()}`;
+                
+                els.inputs.title.disabled = true;
+                els.inputs.title.value = "SEARCHING...";
+                
+                try {
+                    const response = await fetch(proxyUrl);
+                    if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
+                    const data = await response.json();
+                    
+                    if (data.contents) {
+                        const htmlText = data.contents;
+                        const matches = htmlText.match(/<title>(.*?)<\/title>/);
+                        
+                        if (matches && matches[1]) {
+                            let rawTitle = matches[1];
+                            if (rawTitle.includes("Video Game Database") && !rawTitle.includes("[")) {
+                                throw new Error("Generic Page Returned");
+                            }
+                            
+                            const regionMatch = rawTitle.match(/\((.*?)\)/);
+                            if (regionMatch && regionMatch[1]) {
+                                const regionStr = regionMatch[1];
+                                if (regionStr.includes(',')) {
+                                    state.region = "REGION FREE";
+                                    state.regionCode = 'EN'; 
+                                } else {
+                                    state.region = regionStr;
+                                    state.regionCode = regionStr; 
+                                }
+                                els.badges.region.textContent = state.region;
+                                els.badges.region.classList.remove('hidden');
+                            }
+
+                            rawTitle = rawTitle.replace(/ - GameTDB/i, '').replace(/ – GameTDB/i, '');
+                            const idPrefixPattern = new RegExp(`^${currentId}\\s*-\\s*`, 'i');
+                            rawTitle = rawTitle.replace(idPrefixPattern, '');
+                            const idBracketPattern = new RegExp(`\\[${currentId}\\]`, 'i');
+                            rawTitle = rawTitle.replace(idBracketPattern, '');
+                            rawTitle = rawTitle.replace(/\(.*?\)/g, '');
+                            rawTitle = rawTitle.trim();
+                            
+                            const txt = document.createElement("textarea");
+                            txt.innerHTML = rawTitle;
+                            rawTitle = txt.value;
+
+                            state.title = rawTitle;
+                            els.inputs.title.value = rawTitle;
+                            els.inputs.title.disabled = false; 
+                            updateGeneratorUI();
+                            return; 
+                        } else {
+                            throw new Error("Title tag not found");
+                        }
+                    } else {
+                        throw new Error("No content");
+                    }
+                } catch (e) {
+                    console.warn("Fetch failed", e);
+                    els.inputs.title.disabled = false;
+                    els.inputs.title.value = "";
+                    els.inputs.title.placeholder = "Not Found - Enter Title Manually";
+                    els.inputs.title.focus();
+                } finally {
+                    els.inputs.title.disabled = false;
+                    updateGeneratorUI();
+                }
+            },
+
             update: () => {
                 const id = els.inputs.id.value.toUpperCase();
                 const consoleType = els.inputs.console.value;
-                
                 const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
                 
                 if (state.id !== id && id.length > 3) {
@@ -541,7 +651,6 @@
 
         function updateGeneratorUI() {
             const consoleData = getConsoleData(state.console);
-            
             const encodedTitle = encodeURIComponent(els.inputs.title.value || state.title);
             const encodedInstr = encodeURIComponent(state.instructions);
             const code = state.regionCode || 'EN';
@@ -614,22 +723,76 @@
             const artBlock = `<img src="${artUrl}" class="media-art w-full h-full object-cover">
                               <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none"></div>`;
             
-            // 3D COVER ELEMENT (Hidden by default, shown in Reveal phase)
             const cover3DElement = `
                 <div class="cover-3d-wrapper">
                     <img src="${cover3dUrl}" class="w-64 h-auto object-contain rounded-lg" 
                          onerror="this.style.display='none'">
                 </div>`;
 
+            // BRANDING HTML AND CLASSES
+            let brandHTML = '';
+            let deckColor = 'bg-[#1a1a1a]';
+            let deckBorder = 'border-neutral-700';
+            let trayColor = 'bg-[#151515]';
+            let ledColor = 'bg-neutral-700'; 
+
+            if (consoleKey === 'nes') {
+                deckColor = 'bg-neutral-400';
+                brandHTML = `<div class="absolute top-4 w-full text-center text-[8px] font-bold text-red-600 tracking-widest" style="font-family: sans-serif;">NINTENDO ENTERTAINMENT SYSTEM™</div>`;
+            } 
+            else if (consoleKey === 'snes') {
+                deckColor = 'bg-gray-300';
+                brandHTML = `<div class="absolute top-2 right-4 text-[8px] italic font-bold text-gray-600">SUPER NINTENDO</div>`;
+            }
+            else if (consoleKey === 'n64') {
+                deckColor = 'bg-neutral-900 rounded-t-3xl';
+                brandHTML = `<div class="absolute top-[-10px] w-10 h-6 bg-black rounded-full border border-gray-700 flex items-center justify-center text-[6px] text-white font-bold shadow-lg">N64</div>`;
+            }
+            else if (consoleKey === 'gc') {
+                // Handled in spindle block
+            }
+            else if (consoleKey === 'wii') {
+                deckColor = 'bg-gray-100 border-gray-300'; 
+                ledColor = 'bg-blue-400 shadow-[0_0_15px_#60a5fa]'; 
+                brandHTML = `<div class="absolute bottom-2 left-4 text-gray-400 font-sans text-xs tracking-tighter">Wii</div>`;
+            }
+            else if (consoleKey === 'wiiu') {
+                deckColor = 'bg-gray-100 border-gray-300 rounded-lg';
+                brandHTML = `<div class="absolute bottom-2 left-4 text-gray-400 font-sans text-xs tracking-tighter font-bold">Wii U</div>`;
+            }
+            else if (consoleKey === 'ps1') {
+                deckColor = 'bg-gray-400'; 
+            }
+            else if (consoleKey === 'ps2') {
+                trayColor = 'bg-[#080808]';
+                brandHTML = `<div class="absolute top-2 right-4 font-bold italic text-blue-500 text-xs tracking-widest opacity-80">PS2</div>`;
+            }
+            else if (consoleKey === 'ps5') {
+                deckColor = 'bg-black'; 
+                brandHTML = `
+                    <div class="absolute top-0 left-[-20px] w-4 h-full bg-white rounded-r-lg shadow-lg"></div>
+                    <div class="absolute top-0 right-[-20px] w-4 h-full bg-white rounded-l-lg shadow-lg"></div>
+                `;
+            }
+            else if (consoleKey === 'xbox360') {
+                trayColor = 'bg-gray-200';
+                brandHTML = `<div class="absolute top-[-10px] w-full h-4 bg-gray-300 rounded-t-full border-t border-white flex items-center justify-center"><div class="w-16 h-1 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></div></div>`;
+            }
+            else if (consoleKey === 'xboxone') {
+                deckColor = 'bg-[#0a0a0a]';
+                brandHTML = `<div class="absolute top-0 left-0 w-full h-full bg-[linear-gradient(90deg,transparent_50%,#111_50%)] bg-[size:4px_4px] opacity-20"></div><div class="absolute bottom-2 right-4 w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]"></div>`;
+            }
+
+
             if (type === 'cartridge') {
                 return `
                     <div class="relative w-80 h-80 flex flex-col items-center justify-end perspective-1000">
                         ${cover3DElement}
-                        <div class="absolute bottom-0 w-[120%] h-32 bg-[#1a1a1a] rounded-t-xl border-t border-neutral-700 shadow-2xl flex items-start justify-center z-30 overflow-hidden">
+                        <div class="absolute bottom-0 w-[120%] h-32 ${deckColor} rounded-t-xl border-t ${deckBorder} shadow-2xl flex items-start justify-center z-30 overflow-hidden">
+                             ${brandHTML}
                              <div class="w-[80%] h-full bg-[#050505] shadow-[inset_0_10px_30px_rgba(0,0,0,1)] border-x border-neutral-800 relative mt-4">
                                 <div class="absolute top-0 w-full h-2 bg-gradient-to-b from-black to-transparent opacity-80"></div>
                              </div>
-                             <div class="absolute top-2 w-[85%] h-0.5 bg-neutral-600 opacity-20"></div>
                         </div>
                         <div class="cart-container relative z-10 w-64 h-64 bg-neutral-800 rounded-t-md border-x-4 border-t-4 border-neutral-700 flex flex-col items-center shadow-xl">
                             <div class="w-full h-8 flex flex-col justify-center gap-1 mt-4 opacity-50 border-b border-neutral-700 pb-2">
@@ -646,22 +809,17 @@
                 return `
                     <div class="relative w-96 h-96 flex items-center justify-center perspective-1000">
                         ${cover3DElement}
-                        
-                        <!-- BOTTOM JAW (Console Body) -->
                         <div class="slot-bottom-jaw"></div>
-
-                        <!-- DISC LAYER -->
                         <div class="slot-disc-wrapper relative w-72 h-72 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                             <div class="absolute inset-0 rounded-full overflow-hidden bg-neutral-800 border-[6px] border-neutral-800 animate-spin-slow">
                                 ${artBlock}
                             </div>
                             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-[#050505] rounded-full border border-neutral-700"></div>
                         </div>
-
-                        <!-- TOP JAW (Faceplate) -->
-                        <div class="slot-top-jaw">
+                        <div class="slot-top-jaw ${deckColor}">
+                            ${brandHTML}
                             <div class="w-[85%] h-2 bg-black rounded-full blur-[2px] opacity-80 mb-[-1px]"></div>
-                             <div class="absolute bottom-4 right-10 slot-led w-1.5 h-1.5 rounded-full bg-neutral-700"></div>
+                             <div class="absolute bottom-4 right-10 slot-led w-1.5 h-1.5 rounded-full ${ledColor}"></div>
                         </div>
                     </div>`;
             }
@@ -670,12 +828,10 @@
                     <div class="relative w-96 h-96 flex flex-col items-center justify-start perspective-1000 overflow-hidden">
                         ${cover3DElement}
                         <div class="absolute top-0 w-full h-24 bg-[#0a0a0a] border-b border-neutral-800 z-20 flex items-end justify-center shadow-2xl">
-                             <div class="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <div class="w-2 h-2 rounded-full bg-green-900"></div> DVD-ROM
-                             </div>
+                             ${brandHTML}
                         </div>
                         <div class="relative w-72 h-72 z-10 mt-20">
-                            <div class="tray-mech w-full h-full bg-[#151515] rounded-b-lg border-x border-b border-neutral-800 flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,1)]">
+                            <div class="tray-mech w-full h-full ${trayColor} rounded-b-lg border-x border-b border-neutral-800 flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,1)]">
                                 <div class="w-[92%] h-[92%] rounded-full bg-[#0f0f0f] shadow-[inset_0_5px_15px_black] flex items-center justify-center border border-white/5 relative">
                                     <div class="absolute w-12 h-12 rounded-full bg-[#111] border border-neutral-800 shadow-lg z-0"></div>
                                     <div class="tray-disc w-[95%] h-[95%] rounded-full relative z-10">
@@ -695,8 +851,8 @@
                         ${cover3DElement}
                         <div class="absolute top-[-10px] w-64 h-24 bg-[#1a1a1a] border-b border-neutral-800 z-20 flex flex-col items-center justify-end pb-4 shadow-xl">
                             <div class="w-36 h-4 bg-black rounded-sm relative perspective-800">
-                                <div class="switch-flap absolute top-0 left-0 w-full h-full bg-neutral-700 origin-top border-b border-neutral-600">
-                                    <div class="absolute bottom-1 right-2 text-[6px] text-neutral-400 font-bold">GAME CARD</div>
+                                <div class="switch-flap absolute top-0 left-0 w-full h-full bg-neutral-700 origin-top border-b border-neutral-600 flex items-end justify-end p-1">
+                                    <div class="text-[6px] text-white font-bold font-sans mr-2 mb-1">Nintendo Switch</div>
                                 </div>
                             </div>
                         </div>
@@ -712,22 +868,41 @@
                     </div>`;
             }
             else {
-                // Spindle (GameCube / PS1)
-                let discSize = "w-64 h-64"; // Standard
+                // SPINDLE (GAMECUBE / PS1)
+                let discSize = "w-64 h-64";
+                let spindleHTML = '';
+                
                 if (consoleKey === 'gc') {
-                    discSize = "w-44 h-44"; // Mini Disc
+                    discSize = "w-56 h-56"; /* CHANGED SIZE: Fuller, bigger mini disc */
+                    spindleHTML = `
+                        <div class="gc-console-body relative w-96 h-80 bg-indigo-900 rounded-xl shadow-2xl border border-indigo-800 flex items-center justify-center perspective-800">
+                            <div class="absolute top-2 text-center w-full text-indigo-300 font-bold text-[10px] tracking-widest">NINTENDO GAMECUBE</div>
+                            <!-- Lid -->
+                            <div class="gc-lid absolute top-0 left-0 w-full h-full bg-indigo-800 rounded-xl border border-indigo-700 shadow-lg origin-top z-30 flex items-center justify-center">
+                                <div class="w-20 h-20 bg-black rounded-full shadow-inner border border-gray-700 opacity-50"></div>
+                            </div>
+                            <!-- Inner Bay -->
+                            <div class="w-72 h-72 bg-[#1a1a1a] rounded-full shadow-[inset_0_0_40px_black] flex items-center justify-center border border-gray-800">
+                                <div class="spindle-hub w-12 h-12 bg-black rounded-full border-2 border-gray-600 shadow-lg z-10"></div>
+                            </div>
+                        </div>`;
+                } else {
+                    // PS1 Fallback
+                    spindleHTML = `
+                        <div class="w-72 h-72 rounded-full bg-gray-400 border-4 border-gray-500 shadow-[inset_0_0_40px_rgba(0,0,0,0.5)] flex items-center justify-center relative">
+                            <div class="absolute w-64 h-64 rounded-full border border-white/20 opacity-20"></div>
+                            <div class="spindle-hub w-16 h-16 bg-black rounded-full border-4 border-gray-700 z-0 flex items-center justify-center shadow-lg"></div>
+                        </div>`;
                 }
 
                 return `
-                    <div class="relative w-80 h-80 flex items-center justify-center perspective-1000">
+                    <div class="relative w-full h-full flex items-center justify-center perspective-1000">
                         ${cover3DElement}
-                        <div class="w-72 h-72 rounded-full bg-[#111] border-4 border-neutral-800 shadow-[inset_0_0_60px_black] flex items-center justify-center">
-                            <div class="absolute w-64 h-64 rounded-full border border-white/5 opacity-20"></div>
-                            <div class="spindle-hub w-16 h-16 bg-black rounded-full border-4 border-neutral-700 z-0 flex items-center justify-center shadow-lg">
-                                <div class="w-6 h-6 bg-neutral-500 rounded-full shadow-inner"></div>
-                            </div>
-                        </div>
-                        <div class="spindle-disc absolute z-10 ${discSize} rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        
+                        ${spindleHTML}
+
+                        <!-- CHANGED PERSPECTIVE: Matches the console body rotation (50deg) for flat effect -->
+                        <div class="spindle-disc absolute z-20 ${discSize} rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                              <div class="absolute inset-0 rounded-full overflow-hidden border border-neutral-600 animate-spin-slow">
                                 ${artBlock}
                             </div>
@@ -749,6 +924,13 @@
             
             // 1. INSERT (Noir)
             await wait(100);
+            
+            // Special GameCube Opening Sequence
+            if (state.console === 'gc') {
+                container.classList.add('stage-open'); // Open Lid
+                await wait(800);
+            }
+
             container.classList.add('stage-insert');
             
             let insertTime = 2000;
@@ -784,7 +966,6 @@
 
             const consoleData = getConsoleData(state.console);
             
-            // Text Logic
             let text = `INSERT ${state.region} ${consoleData.type.toUpperCase()}`;
             if (state.textStyle === 'insert_disc') text = "PLEASE INSERT DISC";
             if (state.textStyle === 'insert_card') text = "INSERT GAME CARD";
@@ -794,7 +975,6 @@
             els.stage.textInstruction.textContent = text;
             els.stage.textTitle.textContent = els.inputs.title.value || state.title;
 
-            // RENDER INSTRUCTIONS
             const instructions = state.instructions.split('\n').filter(line => line.trim() !== '');
             if (instructions.length > 0) {
                 els.stage.instructionsList.innerHTML = instructions.map(item => `<li>• ${item}</li>`).join('');
@@ -842,6 +1022,9 @@
                 state.title = '';
                 updateGeneratorUI();
             });
+            
+            // FETCH BUTTON
+            els.buttons.fetch.addEventListener('click', () => { MetadataService.fetchTitle(state.id, state.console); });
 
             // URL Param Parsing
             const params = new URLSearchParams(window.location.search);
