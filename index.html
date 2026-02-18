@@ -288,6 +288,15 @@
         .slot-led { transition: 0.3s; background: #333; box-shadow: none; }
         .stage-insert .slot-led { background: #f97316; box-shadow: 0 0 10px #f97316; }
         .stage-lock .slot-led, .stage-reveal .slot-led { background: #3b82f6; box-shadow: 0 0 30px #3b82f6; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -491,6 +500,29 @@
             instructions: '' 
         };
 
+        const ALLOWED_CONSOLES = new Set(Object.values(CONSOLE_DB).flatMap(group => Object.keys(group)));
+
+        function escapeHTML(value = '') {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('\"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function sanitizeConsoleKey(value) {
+            return ALLOWED_CONSOLES.has(value) ? value : 'gc';
+        }
+
+        function sanitizeMediaId(value = '') {
+            return String(value).toUpperCase().replace(/[^A-Z0-9\-_.]/g, '').slice(0, 16);
+        }
+
+        function hasReducedMotionPreference() {
+            return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }
+
         // --- CORE FUNCTIONS ---
         const MetadataService = {
             detectRegionInfo: (id, consoleType) => {
@@ -626,8 +658,10 @@
             },
 
             update: () => {
-                const id = els.inputs.id.value.toUpperCase();
-                const consoleType = els.inputs.console.value;
+                const id = sanitizeMediaId(els.inputs.id.value);
+                const consoleType = sanitizeConsoleKey(els.inputs.console.value);
+                els.inputs.id.value = id;
+                els.inputs.console.value = consoleType;
                 const regionInfo = MetadataService.detectRegionInfo(id, consoleType);
                 
                 if (state.id !== id && id.length > 3) {
@@ -647,7 +681,7 @@
 
         function getConsoleData(key) {
             for (const group in CONSOLE_DB) if (CONSOLE_DB[group][key]) return CONSOLE_DB[group][key];
-            return CONSOLE_DB.sony.ps2; 
+            return CONSOLE_DB.nintendo.gc;
         }
 
         function updateGeneratorUI() {
@@ -726,7 +760,7 @@
             
             const cover3DElement = `
                 <div class="cover-3d-wrapper">
-                    <img src="${cover3dUrl}" class="w-64 h-auto object-contain rounded-lg" 
+                    <img src="${cover3dUrl}" class="w-64 h-auto object-contain rounded-lg" alt="3D cover art"
                          onerror="this.style.display='none'">
                 </div>`;
 
@@ -918,6 +952,11 @@
         async function runAnimationSequence(type) {
             const container = els.views.launch;
             const stage = els.stage.container;
+
+            if (hasReducedMotionPreference()) {
+                container.className = "w-full h-full absolute inset-0 flex flex-col items-center justify-center overflow-hidden perspective-1000 stage-insert stage-lock stage-reveal";
+                return;
+            }
             
             // RESET
             container.className = "w-full h-full absolute inset-0 flex flex-col items-center justify-center overflow-hidden perspective-1000";
@@ -978,16 +1017,28 @@
 
             const instructions = state.instructions.split('\n').filter(line => line.trim() !== '');
             if (instructions.length > 0) {
-                els.stage.instructionsList.innerHTML = instructions.map(item => `<li>• ${item}</li>`).join('');
+                els.stage.instructionsList.replaceChildren(
+                    ...instructions.map(item => {
+                        const li = document.createElement('li');
+                        li.textContent = `• ${item}`;
+                        return li;
+                    })
+                );
                 els.stage.instructionsList.classList.remove('hidden');
             } else {
+                els.stage.instructionsList.replaceChildren();
                 els.stage.instructionsList.classList.add('hidden');
             }
 
             const artUrl = MetadataService.getArtUrl(state.id, state.console, state.regionCode);
             const cover3dUrl = MetadataService.get3DCoverUrl(state.id, state.console, state.regionCode);
             
-            els.stage.container.innerHTML = buildAnimationHTML(consoleData.type, artUrl, state.console, cover3dUrl);
+            els.stage.container.innerHTML = buildAnimationHTML(
+                consoleData.type,
+                escapeHTML(artUrl),
+                sanitizeConsoleKey(state.console),
+                escapeHTML(cover3dUrl)
+            );
             
             // Fallback
             const img = els.stage.container.querySelector('img');
@@ -1031,7 +1082,7 @@
             const params = new URLSearchParams(window.location.search);
             if (params.has('id') && params.has('c')) {
                 state.id = params.get('id');
-                state.console = params.get('c');
+                state.console = sanitizeConsoleKey(params.get('c'));
                 if (params.has('txt')) state.textStyle = params.get('txt');
                 if (params.has('title')) {
                      state.title = decodeURIComponent(params.get('title'));
@@ -1045,6 +1096,7 @@
                 }
                 
                 // Sync Inputs
+                state.id = sanitizeMediaId(state.id);
                 els.inputs.id.value = state.id;
                 els.inputs.console.value = state.console;
                 els.inputs.textStyle.value = state.textStyle;
